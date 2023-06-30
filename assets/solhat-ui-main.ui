@@ -30,11 +30,6 @@
                   <attribute name="scale" value="1.5"/>
                 </attributes>
               </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
             </child>
             <child>
               <!-- n-columns=3 n-rows=6 -->
@@ -48,10 +43,6 @@
                     <property name="label" translatable="yes">Light:</property>
                     <property name="xalign">0</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">0</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel">
@@ -60,10 +51,6 @@
                     <property name="label" translatable="yes">Dark:</property>
                     <property name="xalign">0</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">1</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel">
@@ -72,10 +59,6 @@
                     <property name="label" translatable="yes">Flat:</property>
                     <property name="xalign">0</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">2</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel">
@@ -84,10 +67,6 @@
                     <property name="label" translatable="yes">Dark Flat:</property>
                     <property name="xalign">0</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">3</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel">
@@ -96,10 +75,6 @@
                     <property name="label" translatable="yes">Bias:</property>
                     <property name="xalign">0</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">4</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkLabel">
@@ -108,10 +83,7 @@
                     <property name="label" translatable="yes">Hot Pixel Map:</property>
                     <property name="xalign">0</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">5</property>
-                  </packing>
+
                 </child>
                 <child>
                   <object class="GtkFileChooserButton" id="light_picker">
@@ -124,10 +96,6 @@
                     <property name="margin-bottom">3</property>
                     <property name="title" translatable="yes"/>
                   </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">0</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkFileChooserButton" id="dark_picker">
@@ -139,10 +107,6 @@
                     <property name="margin-bottom">3</property>
                     <property name="title" translatable="yes"/>
                   </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">1</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkFileChooserButton" id="flat_picker">
@@ -154,10 +118,6 @@
                     <property name="margin-bottom">3</property>
                     <property name="title" translatable="yes"/>
                   </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">2</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkFileChooserButton" id="darkflat_picker">
@@ -169,10 +129,6 @@
                     <property name="margin-bottom">3</property>
                     <property name="title" translatable="yes"/>
                   </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">3</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkFileChooserButton" id="bias_picker">
@@ -184,10 +140,6 @@
                     <property name="margin-bottom">3</property>
                     <property name="title" translatable="yes"/>
                   </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">4</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkFileChooserButton" id="hotpixelmap_picker">
@@ -199,10 +151,6 @@
                     <property name="margin-bottom">3</property>
                     <property name="title" translatable="yes"/>
                   </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">5</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="lightfile_clear_button">
@@ -215,10 +163,6 @@
                     <property name="margin-top">3</property>
                     <property name="margin-bottom">3</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">2</property>
-                    <property name="top-attach">0</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="darkfile_clear_button">
@@ -247,10 +191,6 @@
                     <property name="margin-top">3</property>
                     <property name="margin-bottom">3</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">2</property>
-                    <property name="top-attach">2</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="darkflatfile_clear_button">
@@ -263,10 +203,6 @@
                     <property name="margin-top">3</property>
                     <property name="margin-bottom">3</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">2</property>
-                    <property name="top-attach">3</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="biasfile_clear_button">
@@ -279,10 +215,6 @@
                     <property name="margin-top">3</property>
                     <property name="margin-bottom">3</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">2</property>
-                    <property name="top-attach">4</property>
-                  </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="hotpixelmapfile_clear_button">
@@ -295,28 +227,15 @@
                     <property name="margin-top">3</property>
                     <property name="margin-bottom">3</property>
                   </object>
-                  <packing>
-                    <property name="left-attach">2</property>
-                    <property name="top-attach">5</property>
-                  </packing>
                 </child>
               </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
             </child>
             <child>
               <object class="GtkSeparator">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
               </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">2</property>
-              </packing>
+
             </child>
             <child>
               <object class="GtkLabel">
@@ -328,11 +247,7 @@
                   <attribute name="scale" value="1.5"/>
                 </attributes>
               </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">3</property>
-              </packing>
+
             </child>
             <child>
               <!-- n-columns=2 n-rows=2 -->

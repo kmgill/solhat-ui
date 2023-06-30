@@ -1,0 +1,810 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.12.1 -->
+<interface>
+  <!-- interface-name solhat.ui -->
+  <requires lib="gtk" version="4.10"/>
+  <object class="GtkApplicationWindow" id="SolHatApplicationMain">
+    <property name="default-width">900</property>
+    <property name="title">SolHat</property>
+    <child>
+      <object class="GtkBox">
+        <property name="margin-bottom">3</property>
+        <property name="margin-end">3</property>
+        <property name="margin-start">3</property>
+        <property name="margin-top">3</property>
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Inputs</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+                <property name="xalign">0.0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkGrid">
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Light:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_light_clear">
+                    <property name="icon-name">edit-clear</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">3</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_light_open">
+                    <property name="icon-name">document-open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">2</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_light">
+                    <property name="hexpand">True</property>
+                    <property name="label">light.ser</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="width-chars">26</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Dark:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Flat:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Dark Flat:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">3</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Bias:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Hot Pixel Map:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">5</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_dark">
+                    <property name="hexpand">True</property>
+                    <property name="label">dark.ser</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_flat">
+                    <property name="hexpand">True</property>
+                    <property name="label">flat.ser</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_dark_open">
+                    <property name="icon-name">document-open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">2</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_darkflat">
+                    <property name="hexpand">True</property>
+                    <property name="label">darkflat.ser</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">3</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_dark_clear">
+                    <property name="icon-name">edit-clear</property>
+                    <property name="label">Clear</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">3</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_bias">
+                    <property name="hexpand">True</property>
+                    <property name="label">bias.ser</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_open_flat">
+                    <property name="icon-name">document-open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">2</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_hotpixelmap">
+                    <property name="hexpand">True</property>
+                    <property name="label">hotpixelmap.json</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">5</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_darkflat_open">
+                    <property name="icon-name">document-open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">2</property>
+                      <property name="column-span">1</property>
+                      <property name="row">3</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_flat_clear">
+                    <property name="icon-name">edit-clear</property>
+                    <property name="label">Clear</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">3</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_bias_open">
+                    <property name="icon-name">document-open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">2</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_darkflat_clear">
+                    <property name="icon-name">edit-clear</property>
+                    <property name="label">Clear</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">3</property>
+                      <property name="column-span">1</property>
+                      <property name="row">3</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_hotpixelmap_open">
+                    <property name="icon-name">document-open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">2</property>
+                      <property name="column-span">1</property>
+                      <property name="row">5</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_bias_clear">
+                    <property name="icon-name">edit-clear</property>
+                    <property name="label">Clear</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">3</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_hotpixelmap_clear">
+                    <property name="icon-name">edit-clear</property>
+                    <property name="label">Clear</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">3</property>
+                      <property name="column-span">1</property>
+                      <property name="row">5</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <style/>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSeparator">
+                <property name="margin-bottom">3</property>
+                <property name="margin-top">3</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Output</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+                <property name="xalign">0.0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <child>
+                  <object class="GtkLabel">
+                    <property name="halign">start</property>
+                    <property name="label">Output Folder:</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_output_folder">
+                    <property name="hexpand">True</property>
+                    <property name="label">/foo/bar</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="xalign">0.0</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btn_output_folder_open">
+                    <property name="halign">end</property>
+                    <property name="icon-name">document-open</property>
+                    <property name="label">Open</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="valign">end</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Output Filename:</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="hexpand">True</property>
+                    <property name="label">foo.tif</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="xalign">0.0</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSeparator">
+                <property name="margin-bottom">3</property>
+                <property name="margin-top">3</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Observation</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+                <property name="xalign">0.0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkGrid">
+                <child>
+                  <object class="GtkLabel">
+                    <property name="hexpand">True</property>
+                    <property name="label">Observer Latitude:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Observer Longitude:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Target:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_obs_latitude">
+                    <property name="climb-rate">0.1</property>
+                    <property name="digits">3</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="value">34.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_obs_longitude">
+                    <property name="climb-rate">0.1</property>
+                    <property name="digits">3</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="value">-118.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="combo_target">
+                    <property name="active">0</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <items>
+                      <item id="0">Sun</item>
+                      <item id="1">Moon</item>
+                    </items>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSeparator">
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkGrid">
+                <child>
+                  <object class="GtkLabel">
+                    <property name="hexpand">True</property>
+                    <property name="label">Object Detection Threshold:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Drizzle:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Use Maximum Frames:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Minimum Sigma:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">3</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Maximum Sigma:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Include Top Percentage:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">5</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Filename Free Text:</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">6</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_obj_detection_threshold">
+                    <property name="climb-rate">100.0</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="value">20000.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">0</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="combo_drizzle">
+                    <property name="active">0</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <items>
+                      <item id="0">None</item>
+                      <item id="1">1.0x</item>
+                      <item id="2">1.5x</item>
+                      <item id="3">2.0x</item>
+                      <item id="4">3.0x</item>
+                    </items>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">1</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_max_frames">
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="value">5000.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">2</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_min_sigma">
+                    <property name="climb-rate">1.0</property>
+                    <property name="digits">1</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">3</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_max_sigma">
+                    <property name="climb-rate">1.0</property>
+                    <property name="digits">1</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="value">2000.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinButton" id="spn_top_percentage">
+                    <property name="climb-rate">1.0</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="value">10.0</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">5</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="txt_freetext">
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="max-length">256</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">6</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="btn_execute">
+                <property name="label">Start</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Doing Thing</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkProgressBar" id="prg_task_progress">
+                    <property name="hexpand">True</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkNotebook">
+            <property name="hexpand">True</property>
+            <child>
+              <object class="GtkImage" id="img_preview"/>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

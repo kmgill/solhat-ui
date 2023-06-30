@@ -33,3 +33,6 @@ async-trait = "0.1.57"
 tokio = {version="1.21.2", features= ["full"]}
 colored = "2.0.0"
 itertools = "0.10.5"
+
+[build-dependencies]
+glib-build-tools = "0.17.10"
