@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use gtk::gdk::Display;
 use gtk::{
-    gio, prelude::*, ComboBoxText, CssProvider, Entry, Label, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, SpinButton,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,8 @@ use solhat::target::Target;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::ffi::OsStr;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -22,7 +25,7 @@ extern crate stump;
 extern crate lazy_static;
 
 /// Describes the parameters needed to run the SolHat algorithm
-#[derive(Deserialize, Serialize, Default, Clone)]
+#[derive(Deserialize, Serialize, Clone)]
 struct ParametersState {
     light: Option<PathBuf>,
     dark: Option<PathBuf>,
@@ -43,6 +46,30 @@ struct ParametersState {
     top_percentage: f64,
 }
 
+impl Default for ParametersState {
+    fn default() -> Self {
+        Self {
+            light: Default::default(),
+            dark: Default::default(),
+            flat: Default::default(),
+            darkflat: Default::default(),
+            bias: Default::default(),
+            hot_pixel_map: Default::default(),
+            output_dir: Default::default(),
+            freetext: Default::default(),
+            obs_latitude: 34.0,
+            obs_longitude: -118.0,
+            target: Target::Sun,
+            obj_detection_threshold: 2000.0,
+            drizzle_scale: Scale::Scale1_0,
+            max_frames: 5000,
+            min_sigma: 0.0,
+            max_sigma: 2000.0,
+            top_percentage: 10.0,
+        }
+    }
+}
+
 /// Describes the state of the UI
 #[derive(Deserialize, Serialize, Default, Clone)]
 struct UiState {
@@ -55,10 +82,46 @@ struct ApplicationState {
     pub ui: UiState,
 }
 
+impl ApplicationState {
+    pub fn load_from_userhome() -> Result<Self> {
+        let config_file_path = dirs::home_dir().unwrap().join(".solhat/shconfig.toml");
+        if config_file_path.exists() {
+            info!(
+                "Window state config file exists at path: {:?}",
+                config_file_path
+            );
+            let t = std::fs::read_to_string(config_file_path)?;
+            Ok(toml::from_str(&t)?)
+        } else {
+            warn!("Window state config file does not exist. Will be created on exit");
+            Err(anyhow!("Config file does not exist"))
+        }
+    }
+
+    pub fn save_to_userhome(&self) -> Result<()> {
+        let toml_str = toml::to_string(&self).unwrap();
+        let solhat_config_dir = dirs::home_dir().unwrap().join(".solhat/");
+        if !solhat_config_dir.exists() {
+            fs::create_dir(&solhat_config_dir)?;
+        }
+        let config_file_path = solhat_config_dir.join("shconfig.toml");
+        let mut f = File::create(config_file_path)?;
+        f.write_all(toml_str.as_bytes())?;
+        debug!("{}", toml_str);
+        Ok(())
+    }
+}
+
 lazy_static! {
     // Oh, this is such a hacky way to do it I hate it so much.
     // TODO: Learn the correct way to do this.
     static ref STATE: Arc<Mutex<ApplicationState>> = Arc::new(Mutex::new(ApplicationState::default()));
+}
+
+macro_rules! get_state_param {
+    ($prop:ident) => {
+        STATE.lock().unwrap().params.$prop
+    };
 }
 
 macro_rules! set_state_param {
@@ -109,7 +172,10 @@ async fn main() -> Result<glib::ExitCode> {
         // build_ui(app);
     });
     application.connect_activate(build_ui);
-    Ok(application.run())
+    let exitcode = application.run();
+
+    STATE.lock().unwrap().save_to_userhome()?;
+    Ok(exitcode)
 }
 
 macro_rules! bind_object {
@@ -129,11 +195,16 @@ macro_rules! update_output_filename {
     };
 }
 
+/// Binds the controls for the input files. The controls are the label, open, and clear buttons
 macro_rules! bind_open_clear {
     ($builder:expr, $window:expr, $open_id:expr, $clear_id:expr, $label_id:expr,$state_prop:ident, $opener:ident) => {{
         let btn_open: Button = bind_object!($builder, $open_id);
         let btn_clear: Button = bind_object!($builder, $clear_id);
         let label: Label = bind_object!($builder, $label_id);
+
+        if let Some(prop) = &STATE.lock().unwrap().params.$state_prop {
+            label.set_label(prop.file_name().unwrap().clone().to_str().unwrap());
+        }
 
         let win = &$window;
 
@@ -160,9 +231,25 @@ macro_rules! bind_open_clear {
     }};
 }
 
+macro_rules! bind_spinner {
+    ($builder:expr, $obj_id:expr, $state_prop:ident, $type:ident) => {
+        let spn_obj: SpinButton = bind_object!($builder, $obj_id);
+        spn_obj.set_value(get_state_param!($state_prop) as f64);
+        spn_obj.connect_changed(|e| {
+            set_state_param!($state_prop, e.value() as $type);
+        });
+    };
+}
+
 fn build_ui(application: &Application) {
     let ui_src = include_str!("../assets/solhat.ui");
     let builder = Builder::from_string(ui_src);
+
+    if let Ok(ss) = ApplicationState::load_from_userhome() {
+        *STATE.lock().unwrap() = ss;
+    } else {
+        warn!("No saved state file found. One will be created on exit");
+    }
 
     let window: ApplicationWindow = builder
         .object("SolHatApplicationMain")
@@ -236,6 +323,10 @@ fn build_ui(application: &Application) {
     let btn_output_open: Button = bind_object!(builder, "btn_output_folder_open");
     let lbl_output_folder: Label = bind_object!(builder, "lbl_output_folder");
 
+    if let Some(prop) = &STATE.lock().unwrap().params.output_dir {
+        lbl_output_folder.set_label(prop.clone().to_str().unwrap());
+    }
+
     let b = builder.clone();
     btn_output_open.connect_clicked(
         glib::clone!(@strong lbl_output_folder, @weak window => move |_| {
@@ -255,6 +346,7 @@ fn build_ui(application: &Application) {
     ////////
     let b = builder.clone();
     let txt_freetext: Entry = bind_object!(builder, "txt_freetext");
+    txt_freetext.set_text(&get_state_param!(freetext));
     txt_freetext.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
         debug!("Free Text: {}", e.buffer().text());
         set_state_param!(freetext, e.buffer().text().to_string());
@@ -300,6 +392,24 @@ fn build_ui(application: &Application) {
         update_output_filename!(builder);
     }));
 
+    ////////
+    // Spinners
+    ////////
+    bind_spinner!(builder, "spn_obs_latitude", obs_latitude, f64);
+    bind_spinner!(builder, "spn_obs_longitude", obs_longitude, f64);
+
+    bind_spinner!(
+        builder,
+        "spn_obj_detection_threshold",
+        obj_detection_threshold,
+        f64
+    );
+    bind_spinner!(builder, "spn_max_frames", max_frames, usize);
+    bind_spinner!(builder, "spn_min_sigma", min_sigma, f64);
+    bind_spinner!(builder, "spn_max_sigma", max_sigma, f64);
+    bind_spinner!(builder, "spn_top_percentage", top_percentage, f64);
+
+    update_output_filename!(builder);
     window.present();
 }
 
