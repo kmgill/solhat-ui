@@ -23,6 +23,9 @@
                 <property name="margin-start">3</property>
                 <property name="margin-top">3</property>
                 <property name="xalign">0.0</property>
+                <style>
+                  <class name="section_header"/>
+                </style>
               </object>
             </child>
             <child>
@@ -30,6 +33,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Light:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -72,7 +79,6 @@
                 <child>
                   <object class="GtkLabel" id="lbl_light">
                     <property name="hexpand">True</property>
-                    <property name="label">light.ser</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -90,6 +96,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Dark:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -102,6 +112,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Flat:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -114,6 +128,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Dark Flat:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -126,6 +144,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Bias:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -138,6 +160,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Hot Pixel Map:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -150,7 +176,10 @@
                 <child>
                   <object class="GtkLabel" id="lbl_dark">
                     <property name="hexpand">True</property>
-                    <property name="label">dark.ser</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -163,7 +192,10 @@
                 <child>
                   <object class="GtkLabel" id="lbl_flat">
                     <property name="hexpand">True</property>
-                    <property name="label">flat.ser</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -191,7 +223,10 @@
                 <child>
                   <object class="GtkLabel" id="lbl_darkflat">
                     <property name="hexpand">True</property>
-                    <property name="label">darkflat.ser</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -204,7 +239,6 @@
                 <child>
                   <object class="GtkButton" id="btn_dark_clear">
                     <property name="icon-name">edit-clear</property>
-                    <property name="label">Clear</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -220,7 +254,10 @@
                 <child>
                   <object class="GtkLabel" id="lbl_bias">
                     <property name="hexpand">True</property>
-                    <property name="label">bias.ser</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -248,7 +285,10 @@
                 <child>
                   <object class="GtkLabel" id="lbl_hotpixelmap">
                     <property name="hexpand">True</property>
-                    <property name="label">hotpixelmap.json</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -276,7 +316,6 @@
                 <child>
                   <object class="GtkButton" id="btn_flat_clear">
                     <property name="icon-name">edit-clear</property>
-                    <property name="label">Clear</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -307,7 +346,6 @@
                 <child>
                   <object class="GtkButton" id="btn_darkflat_clear">
                     <property name="icon-name">edit-clear</property>
-                    <property name="label">Clear</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -338,7 +376,6 @@
                 <child>
                   <object class="GtkButton" id="btn_bias_clear">
                     <property name="icon-name">edit-clear</property>
-                    <property name="label">Clear</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -354,7 +391,6 @@
                 <child>
                   <object class="GtkButton" id="btn_hotpixelmap_clear">
                     <property name="icon-name">edit-clear</property>
-                    <property name="label">Clear</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -384,6 +420,9 @@
                 <property name="margin-start">3</property>
                 <property name="margin-top">3</property>
                 <property name="xalign">0.0</property>
+                <style>
+                  <class name="section_header"/>
+                </style>
               </object>
             </child>
             <child>
@@ -392,12 +431,15 @@
                   <object class="GtkLabel">
                     <property name="halign">start</property>
                     <property name="label">Output Folder:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkLabel" id="lbl_output_folder">
                     <property name="hexpand">True</property>
-                    <property name="label">/foo/bar</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -409,7 +451,6 @@
                   <object class="GtkButton" id="btn_output_folder_open">
                     <property name="halign">end</property>
                     <property name="icon-name">document-open</property>
-                    <property name="label">Open</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -424,12 +465,15 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Output Filename:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkLabel">
                     <property name="hexpand">True</property>
-                    <property name="label">foo.tif</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -453,6 +497,9 @@
                 <property name="margin-start">3</property>
                 <property name="margin-top">3</property>
                 <property name="xalign">0.0</property>
+                <style>
+                  <class name="section_header"/>
+                </style>
               </object>
             </child>
             <child>
@@ -461,6 +508,10 @@
                   <object class="GtkLabel">
                     <property name="hexpand">True</property>
                     <property name="label">Observer Latitude:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -473,6 +524,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Observer Longitude:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -485,6 +540,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Target:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -563,6 +622,10 @@
                   <object class="GtkLabel">
                     <property name="hexpand">True</property>
                     <property name="label">Object Detection Threshold:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -575,6 +638,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Drizzle:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -587,6 +654,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Use Maximum Frames:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -599,6 +670,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Minimum Sigma:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -611,6 +686,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Maximum Sigma:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -623,6 +702,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Include Top Percentage:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
@@ -635,6 +718,10 @@
                 <child>
                   <object class="GtkLabel">
                     <property name="label">Filename Free Text:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
                     <property name="xalign">0.0</property>
                     <layout>
                       <property name="column">0</property>
