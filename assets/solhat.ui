@@ -790,10 +790,9 @@
                     <property name="margin-top">3</property>
                     <items>
                       <item id="0">None</item>
-                      <item id="1">1.0x</item>
-                      <item id="2">1.5x</item>
-                      <item id="3">2.0x</item>
-                      <item id="4">3.0x</item>
+                      <item id="1">1.5x</item>
+                      <item id="2">2.0x</item>
+                      <item id="3">3.0x</item>
                     </items>
                     <layout>
                       <property name="column">1</property>
@@ -910,6 +909,9 @@
                 </child>
                 <child>
                   <object class="GtkEntry" id="txt_freetext">
+                    <property name="buffer">
+                      <object class="GtkEntryBuffer"/>
+                    </property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>

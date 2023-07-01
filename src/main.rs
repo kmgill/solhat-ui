@@ -1,12 +1,15 @@
 use anyhow::{anyhow, Result};
 use gtk::gdk::Display;
-use gtk::{gio, prelude::*, CssProvider, Label, STYLE_PROVIDER_PRIORITY_APPLICATION};
+use gtk::{
+    gio, prelude::*, ComboBoxText, CssProvider, Entry, Label, STYLE_PROVIDER_PRIORITY_APPLICATION,
+};
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
 use serde::{Deserialize, Serialize};
 use solhat::drizzle::Scale;
 use solhat::target::Target;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -84,42 +87,49 @@ async fn main() -> Result<glib::ExitCode> {
     Ok(application.run())
 }
 
+macro_rules! bind_object {
+    ($builder:expr, $obj_id:expr) => {
+        if let Some(obj) = $builder.object($obj_id) {
+            obj
+        } else {
+            panic!("Failed to bind object with id '{}'", $obj_id);
+        }
+    };
+}
+
+macro_rules! update_output_filename {
+    ($builder:expr) => {
+        let lbl_output_filename: Label = bind_object!($builder, "lbl_output_filename");
+        lbl_output_filename.set_label(assemble_output_filename().unwrap().to_str().unwrap());
+    };
+}
+
 macro_rules! bind_open_clear {
     ($builder:expr, $window:expr, $open_id:expr, $clear_id:expr, $label_id:expr,$state_prop:ident, $opener:ident) => {{
-        let btn_open: Button = if let Some(btn) = $builder.object($open_id) {
-            btn
-        } else {
-            panic!("Failed to bind open button with id '{}'", $open_id);
-        };
-
-        let btn_clear: Button = if let Some(btn) = $builder.object($clear_id) {
-            btn
-        } else {
-            panic!("Failed to bind clear button with id '{}'", $clear_id);
-        };
-
-        let label: Label = if let Some(lbl) = $builder.object($label_id) {
-            lbl
-        } else {
-            panic!("Failed to bind label with id '{}'", $label_id);
-        };
+        let btn_open: Button = bind_object!($builder, $open_id);
+        let btn_clear: Button = bind_object!($builder, $clear_id);
+        let label: Label = bind_object!($builder, $label_id);
 
         let win = &$window;
 
-        btn_open.connect_clicked(glib::clone!(@strong label, @weak win => move |_| {
+        let b = $builder.clone();
+        btn_open.connect_clicked(glib::clone!(@strong label, @weak win, @weak b as builder => move |_| {
             println!("Opening file");
             $opener("Open Ser File", &win,glib::clone!( @weak label => move|f| {
                 println!("Opened: {:?}", f);
                 label.set_label(f.file_name().unwrap().to_str().unwrap());
                 STATE.lock().unwrap().params.$state_prop = Some(f);
+                update_output_filename!(builder);
             }));
         }));
 
-        btn_clear.connect_clicked(glib::clone!(@strong label => move |_| {
+        let b = $builder.clone();
+        btn_clear.connect_clicked(glib::clone!(@strong label, @weak b as builder => move |_| {
             label.set_label("");
             let mut s = STATE.lock().unwrap();
             println!("Was: {:?}", s.params.$state_prop);
             s.params.$state_prop = None;
+            update_output_filename!(builder);
         }));
     }};
 }
@@ -197,36 +207,71 @@ fn build_ui(application: &Application) {
     // Output folder
     ////////
 
-    let btn_output_open: Button = if let Some(btn) = builder.object("btn_output_folder_open") {
-        btn
-    } else {
-        panic!("Failed to bind output folderopen button with id 'btn_output_folder_open'");
-    };
+    let btn_output_open: Button = bind_object!(builder, "btn_output_folder_open");
+    let lbl_output_folder: Label = bind_object!(builder, "lbl_output_folder");
 
-    let lbl_output_folder: Label = if let Some(lbl) = builder.object("lbl_output_folder") {
-        lbl
-    } else {
-        panic!("Failed to bind label with id 'lbl_output_folder'");
-    };
-
-    let lbl_output_filename: Label = if let Some(lbl) = builder.object("lbl_output_filename") {
-        lbl
-    } else {
-        panic!("Failed to bind label with id 'lbl_output_filename'");
-    };
-
+    let b = builder.clone();
     btn_output_open.connect_clicked(
         glib::clone!(@strong lbl_output_folder, @weak window => move |_| {
-            println!("Opening file");
-            open_folder("Open Ser File", &window,glib::clone!( @weak lbl_output_folder, @weak lbl_output_filename => move|f| {
-                println!("Opened: {:?}", f);
+            debug!("Opening file");
+            open_folder("Open Ser File", &window,glib::clone!( @weak lbl_output_folder, @weak b as builder => move|f| {
+                debug!("Opened: {:?}", f);
                 lbl_output_folder.set_label(f.to_str().unwrap());
                 STATE.lock().unwrap().params.output_dir = Some(f);
-                lbl_output_filename.set_label(assemble_output_filename().unwrap().to_str().unwrap());
-                //
+                update_output_filename!(builder);
             }));
         }),
     );
+
+    ////////
+    // Free text
+    ////////
+    let b = builder.clone();
+    let txt_freetext: Entry = bind_object!(builder, "txt_freetext");
+    txt_freetext.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
+        debug!("Free Text: {}", e.buffer().text());
+        STATE.lock().unwrap().params.freetext = e.buffer().text().to_string();
+        update_output_filename!(builder);
+    }));
+
+    ////////
+    // Target
+    ////////
+
+    let combo_target: ComboBoxText = bind_object!(builder, "combo_target");
+    match STATE.lock().unwrap().params.target {
+        Target::Sun => combo_target.set_active_id(Some("0")),
+        Target::Moon => combo_target.set_active_id(Some("1")),
+    };
+    combo_target.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
+        STATE.lock().unwrap().params.target = match e.active_id().unwrap().to_string().as_str() {
+            "0" => Target::Sun,
+            "1" => Target::Moon,
+            _ => panic!("Invalid target selected")
+        };
+        update_output_filename!(builder);
+    }));
+
+    ////////
+    // Drizzle
+    ////////
+    let combo_drizzle: ComboBoxText = bind_object!(builder, "combo_drizzle");
+    match STATE.lock().unwrap().params.drizzle_scale {
+        Scale::Scale1_0 => combo_drizzle.set_active_id(Some("0")),
+        Scale::Scale1_5 => combo_drizzle.set_active_id(Some("1")),
+        Scale::Scale2_0 => combo_drizzle.set_active_id(Some("2")),
+        Scale::Scale3_0 => combo_drizzle.set_active_id(Some("3")),
+    };
+    combo_drizzle.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
+        STATE.lock().unwrap().params.drizzle_scale = match e.active_id().unwrap().to_string().as_str() {
+            "0" => Scale::Scale1_0,
+            "1" => Scale::Scale1_5,
+            "2" => Scale::Scale2_0,
+            "3" => Scale::Scale3_0,
+            _ => panic!("Invalid drizzle scale selected")
+        };
+        update_output_filename!(builder);
+    }));
 
     window.present();
 }
@@ -278,9 +323,9 @@ fn assemble_output_filename() -> Result<PathBuf> {
     let state = STATE.lock().unwrap();
 
     let output_dir = if let Some(output_dir) = &state.params.output_dir {
-        output_dir
+        output_dir.to_owned()
     } else {
-        return Err(anyhow!("Output directory not set"));
+        dirs::home_dir().unwrap()
     };
 
     let base_filename = if let Some(input_file) = &state.params.light {
@@ -288,7 +333,7 @@ fn assemble_output_filename() -> Result<PathBuf> {
             .file_stem()
             .unwrap()
     } else {
-        return Err(anyhow!("Input light file not provided"));
+        OsStr::new("Unknown")
     };
 
     let freetext = if !state.params.freetext.is_empty() {
@@ -316,6 +361,6 @@ fn assemble_output_filename() -> Result<PathBuf> {
         drizzle,
         freetext
     );
-    let output_path: PathBuf = Path::new(output_dir).join(output_filename);
+    let output_path: PathBuf = Path::new(&output_dir).join(output_filename);
     Ok(output_path)
 }
