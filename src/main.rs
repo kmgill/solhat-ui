@@ -61,6 +61,31 @@ lazy_static! {
     static ref STATE: Arc<Mutex<ApplicationState>> = Arc::new(Mutex::new(ApplicationState::default()));
 }
 
+macro_rules! set_state_param {
+    ($prop:ident, $value:expr) => {
+        STATE.lock().unwrap().params.$prop = $value;
+    };
+}
+
+macro_rules! set_state_ui {
+    ($prop:ident, $value:expr) => {
+        STATE.lock().unwrap().ui.$prop = $value;
+    };
+}
+
+macro_rules! clear_last_opened_folder {
+    () => {
+        set_state_ui!(last_opened_folder, None);
+    };
+}
+
+macro_rules! set_last_opened_folder {
+    ($dir:expr) => {
+        set_state_ui!(last_opened_folder, Some($dir));
+        info!("Setting last opened folder to {:?}", $dir);
+    };
+}
+
 #[tokio::main]
 async fn main() -> Result<glib::ExitCode> {
     stump::set_min_log_level(stump::LogEntryLevel::DEBUG);
@@ -114,12 +139,13 @@ macro_rules! bind_open_clear {
 
         let b = $builder.clone();
         btn_open.connect_clicked(glib::clone!(@strong label, @weak win, @weak b as builder => move |_| {
-            println!("Opening file");
+            debug!("Opening file");
             $opener("Open Ser File", &win,glib::clone!( @weak label => move|f| {
-                println!("Opened: {:?}", f);
+                debug!("Opened: {:?}", f);
                 label.set_label(f.file_name().unwrap().to_str().unwrap());
-                STATE.lock().unwrap().params.$state_prop = Some(f);
+                set_state_param!($state_prop, Some(f.to_owned()));
                 update_output_filename!(builder);
+                set_last_opened_folder!(f.parent().unwrap().to_owned());
             }));
         }));
 
@@ -127,7 +153,7 @@ macro_rules! bind_open_clear {
         btn_clear.connect_clicked(glib::clone!(@strong label, @weak b as builder => move |_| {
             label.set_label("");
             let mut s = STATE.lock().unwrap();
-            println!("Was: {:?}", s.params.$state_prop);
+            debug!("Was: {:?}", s.params.$state_prop);
             s.params.$state_prop = None;
             update_output_filename!(builder);
         }));
@@ -217,8 +243,9 @@ fn build_ui(application: &Application) {
             open_folder("Open Ser File", &window,glib::clone!( @weak lbl_output_folder, @weak b as builder => move|f| {
                 debug!("Opened: {:?}", f);
                 lbl_output_folder.set_label(f.to_str().unwrap());
-                STATE.lock().unwrap().params.output_dir = Some(f);
+                set_state_param!(output_dir, Some(f.to_owned()));
                 update_output_filename!(builder);
+                set_last_opened_folder!(f.to_owned());
             }));
         }),
     );
@@ -230,7 +257,7 @@ fn build_ui(application: &Application) {
     let txt_freetext: Entry = bind_object!(builder, "txt_freetext");
     txt_freetext.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
         debug!("Free Text: {}", e.buffer().text());
-        STATE.lock().unwrap().params.freetext = e.buffer().text().to_string();
+        set_state_param!(freetext, e.buffer().text().to_string());
         update_output_filename!(builder);
     }));
 
@@ -244,11 +271,11 @@ fn build_ui(application: &Application) {
         Target::Moon => combo_target.set_active_id(Some("1")),
     };
     combo_target.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
-        STATE.lock().unwrap().params.target = match e.active_id().unwrap().to_string().as_str() {
+        set_state_param!(target, match e.active_id().unwrap().to_string().as_str() {
             "0" => Target::Sun,
             "1" => Target::Moon,
             _ => panic!("Invalid target selected")
-        };
+        });
         update_output_filename!(builder);
     }));
 
@@ -263,13 +290,13 @@ fn build_ui(application: &Application) {
         Scale::Scale3_0 => combo_drizzle.set_active_id(Some("3")),
     };
     combo_drizzle.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
-        STATE.lock().unwrap().params.drizzle_scale = match e.active_id().unwrap().to_string().as_str() {
+        set_state_param!(drizzle_scale, match e.active_id().unwrap().to_string().as_str() {
             "0" => Scale::Scale1_0,
             "1" => Scale::Scale1_5,
             "2" => Scale::Scale2_0,
             "3" => Scale::Scale3_0,
             _ => panic!("Invalid drizzle scale selected")
-        };
+        });
         update_output_filename!(builder);
     }));
 
