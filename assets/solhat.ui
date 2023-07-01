@@ -268,7 +268,7 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkButton" id="btn_open_flat">
+                  <object class="GtkButton" id="btn_flat_open">
                     <property name="icon-name">document-open</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
@@ -472,7 +472,7 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkLabel">
+                  <object class="GtkLabel" id="lbl_output_filename">
                     <property name="hexpand">True</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
@@ -555,12 +555,23 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_obs_latitude">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_obs_latitude">
+                        <property name="lower">-90.0</property>
+                        <property name="page-increment">1.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">0.1</property>
+                        <property name="upper">90.0</property>
+                        <property name="value">34.0</property>
+                      </object>
+                    </property>
                     <property name="climb-rate">0.1</property>
                     <property name="digits">3</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <property name="value">34.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -572,12 +583,23 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_obs_longitude">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_obs_longitude">
+                        <property name="lower">-180.0</property>
+                        <property name="page-increment">1.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">0.1</property>
+                        <property name="upper">180.0</property>
+                        <property name="value">-118.0</property>
+                      </object>
+                    </property>
                     <property name="climb-rate">0.1</property>
                     <property name="digits">3</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <property name="value">-118.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -590,6 +612,7 @@
                 <child>
                   <object class="GtkComboBoxText" id="combo_target">
                     <property name="active">0</property>
+                    <property name="active-id">0</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -733,11 +756,21 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_obj_detection_threshold">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_obj_detection_threshold">
+                        <property name="page-increment">1000.0</property>
+                        <property name="page-size">1000.0</property>
+                        <property name="step-increment">100.0</property>
+                        <property name="upper">65535.0</property>
+                        <property name="value">20000.0</property>
+                      </object>
+                    </property>
                     <property name="climb-rate">100.0</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <property name="value">20000.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -750,6 +783,7 @@
                 <child>
                   <object class="GtkComboBoxText" id="combo_drizzle">
                     <property name="active">0</property>
+                    <property name="active-id">0</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -771,10 +805,21 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_max_frames">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_max_frames">
+                        <property name="lower">1.0</property>
+                        <property name="page-increment">10.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">1.0</property>
+                        <property name="upper">100000.0</property>
+                        <property name="value">5000.0</property>
+                      </object>
+                    </property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <property name="value">5000.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -786,12 +831,21 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_min_sigma">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_min_sigma">
+                        <property name="page-increment">10.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">1.0</property>
+                        <property name="upper">5000.0</property>
+                      </object>
+                    </property>
                     <property name="climb-rate">1.0</property>
                     <property name="digits">1</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
@@ -802,12 +856,22 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_max_sigma">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_max_sigma">
+                        <property name="page-increment">10.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">1.0</property>
+                        <property name="upper">5000.0</property>
+                        <property name="value">2000.0</property>
+                      </object>
+                    </property>
                     <property name="climb-rate">1.0</property>
                     <property name="digits">1</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <property name="value">2000.0</property>
                     <layout>
                       <property name="column">1</property>
@@ -819,11 +883,22 @@
                 </child>
                 <child>
                   <object class="GtkSpinButton" id="spn_top_percentage">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">1.0</property>
+                        <property name="page-increment">10.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">1.0</property>
+                        <property name="upper">100.0</property>
+                        <property name="value">10.0</property>
+                      </object>
+                    </property>
                     <property name="climb-rate">1.0</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
                     <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
                     <property name="value">10.0</property>
                     <layout>
                       <property name="column">1</property>
