@@ -1,12 +1,16 @@
 use anyhow::{anyhow, Result};
-use gtk::gdk::Display;
+use gtk::ffi::gtk_picture_new_for_filename;
+use gtk::gdk::{Display, Texture};
+use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::{
-    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, SpinButton,
+    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, SpinButton,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
+use itertools::iproduct;
 use serde::{Deserialize, Serialize};
 use solhat::drizzle::Scale;
+use solhat::ser::{SerFile, SerFrame};
 use solhat::target::Target;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
@@ -191,7 +195,33 @@ macro_rules! bind_object {
 macro_rules! update_output_filename {
     ($builder:expr) => {
         let lbl_output_filename: Label = bind_object!($builder, "lbl_output_filename");
-        lbl_output_filename.set_label(assemble_output_filename().unwrap().to_str().unwrap());
+        lbl_output_filename.set_label(
+            assemble_output_filename()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap(),
+        );
+    };
+}
+
+macro_rules! update_preview_from_ser_file {
+    ($builder:expr,$ser_file_path:expr) => {
+        let pic: Picture = bind_object!($builder, "img_preview");
+
+        if let Some(ext) = $ser_file_path.extension() {
+            match ext.to_str().unwrap() {
+                "ser" => {
+                    let pix = picture_from_ser_file($ser_file_path.to_str().unwrap()).unwrap();
+                    pic.set_pixbuf(Some(&pix));
+                }
+                _ => {
+                    error!("User loaded an invalid ser file: {:?}", $ser_file_path);
+                    // Load an 'invalid file' icon
+                }
+            }
+        }
     };
 }
 
@@ -217,6 +247,11 @@ macro_rules! bind_open_clear {
                 set_state_param!($state_prop, Some(f.to_owned()));
                 update_output_filename!(builder);
                 set_last_opened_folder!(f.parent().unwrap().to_owned());
+
+                // We'll update regardless of which input data was opened as the goal
+                // is to provide a minimal calibration as data is identified prior to showing
+                // the preview to the user
+                update_preview_from_ser_file!(builder, f);
             }));
         }));
 
@@ -410,6 +445,13 @@ fn build_ui(application: &Application) {
     bind_spinner!(builder, "spn_top_percentage", top_percentage, f64);
 
     update_output_filename!(builder);
+
+    // If there's a file in the parameters state already (such as from saved state),
+    // we need to update the preview pane.
+    if let Some(light_path) = &STATE.lock().unwrap().params.light {
+        update_preview_from_ser_file!(builder, light_path);
+    }
+
     window.present();
 }
 
@@ -500,4 +542,43 @@ fn assemble_output_filename() -> Result<PathBuf> {
     );
     let output_path: PathBuf = Path::new(&output_dir).join(output_filename);
     Ok(output_path)
+}
+
+fn picture_from_ser_file(file_path: &str) -> Result<Pixbuf> {
+    let ser_file = SerFile::load_ser(file_path).unwrap();
+    let first_image = ser_file.get_frame(0).unwrap();
+    ser_frame_to_picture(&first_image)
+}
+
+fn ser_frame_to_picture(ser_frame: &SerFrame) -> Result<Pixbuf> {
+    let mut copied = ser_frame.buffer.clone();
+
+    copied.normalize_to_8bit();
+
+    let pix = Pixbuf::new(
+        Colorspace::Rgb,
+        false,
+        8,
+        copied.width as i32,
+        copied.height as i32,
+    )
+    .unwrap();
+
+    iproduct!(0..copied.height, 0..copied.width).for_each(|(y, x)| {
+        let (r, g, b) = if copied.num_bands() == 1 {
+            (
+                copied.get_band(0).get(x, y),
+                copied.get_band(0).get(x, y),
+                copied.get_band(0).get(x, y),
+            )
+        } else {
+            (
+                copied.get_band(0).get(x, y),
+                copied.get_band(1).get(x, y),
+                copied.get_band(2).get(x, y),
+            )
+        };
+        pix.put_pixel(x as u32, y as u32, r as u8, g as u8, b as u8, 255);
+    });
+    Ok(pix)
 }
