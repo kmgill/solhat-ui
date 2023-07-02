@@ -589,7 +589,8 @@ macro_rules! check_cancel_status {
     () => {
         if is_cancel_requested!() {
             set_task_cancelled!();
-            set_task_completed();
+            set_task_completed!();
+            reset_cancel_status!();
             warn!("Task cancellation request detected. Stopping progress");
             panic!("Cancelling!");
         }
@@ -602,7 +603,7 @@ async fn run_async() -> Result<()> {
     let output_filename = assemble_output_filename()?;
     let params = build_solhat_parameters();
 
-    set_task_status("Processing Master Flat", 2, 1);
+    set_task_status!("Processing Master Flat", 2, 1);
     let master_flat = if let Some(inputs) = &params.flat_inputs {
         info!("Processing master flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -612,7 +613,7 @@ async fn run_async() -> Result<()> {
 
     check_cancel_status!();
 
-    set_task_status("Processing Master Dark Flat", 2, 1);
+    set_task_status!("Processing Master Dark Flat", 2, 1);
     let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
         info!("Processing master dark flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -622,7 +623,7 @@ async fn run_async() -> Result<()> {
 
     check_cancel_status!();
 
-    set_task_status("Processing Master Dark", 2, 1);
+    set_task_status!("Processing Master Dark", 2, 1);
     let master_dark = if let Some(inputs) = &params.dark_inputs {
         info!("Processing master dark...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -651,28 +652,28 @@ async fn run_async() -> Result<()> {
         master_bias,
     )?;
 
-    set_task_status("Frame Sigma Analysis", context.frame_records.len(), 0);
+    set_task_status!("Frame Sigma Analysis", context.frame_records.len(), 0);
     context.frame_records = frame_sigma_analysis(&context, |_fr| {
-        increment_status();
+        increment_status!();
         info!("frame_sigma_analysis(): Frame processed.");
         check_cancel_status!();
     })?;
 
     check_cancel_status!();
-    set_task_status("Applying Frame Limits", context.frame_records.len(), 0);
+    set_task_status!("Applying Frame Limits", context.frame_records.len(), 0);
     context.frame_records = frame_limit_determinate(&context, |_fr| {
         info!("frame_limit_determinate(): Frame processed.");
         check_cancel_status!();
     })?;
 
     check_cancel_status!();
-    set_task_status(
+    set_task_status!(
         "Computing Parallactic Angle Rotations",
         context.frame_records.len(),
-        0,
+        0
     );
     context.frame_records = frame_rotation_analysis(&context, |fr| {
-        increment_status();
+        increment_status!();
         info!(
             "Rotation for frame is {} degrees",
             fr.computed_rotation.to_degrees()
@@ -681,13 +682,13 @@ async fn run_async() -> Result<()> {
     })?;
 
     check_cancel_status!();
-    set_task_status(
+    set_task_status!(
         "Computing Center-of-Mass Offsets",
         context.frame_records.len(),
-        0,
+        0
     );
     context.frame_records = frame_offset_analysis(&context, |_fr| {
-        increment_status();
+        increment_status!();
         info!("frame_offset_analysis(): Frame processed.");
         check_cancel_status!();
     })?;
@@ -696,14 +697,14 @@ async fn run_async() -> Result<()> {
         println!("Zero frames to stack. Cannot continue");
     } else {
         check_cancel_status!();
-        set_task_status("Stacking", context.frame_records.len(), 0);
+        set_task_status!("Stacking", context.frame_records.len(), 0);
         let drizzle_output = process_frame_stacking(&context, |_fr| {
             info!("process_frame_stacking(): Frame processed.");
-            increment_status();
+            increment_status!();
         })?;
 
         check_cancel_status!();
-        set_task_status("Finalizing", 2, 1);
+        set_task_status!("Finalizing", 2, 1);
         let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
 
         // Let the user know some stuff...
@@ -721,14 +722,14 @@ async fn run_async() -> Result<()> {
         );
 
         // Save finalized image to disk
-        set_task_status("Saving", 2, 1);
+        set_task_status!("Saving", 2, 1);
         stacked_buffer.save(output_filename.to_string_lossy().as_ref())?;
 
         // The user will likely never see this actually appear on screen
-        set_task_status("Done", 1, 1);
+        set_task_status!("Done", 1, 1);
     }
 
-    set_task_completed();
+    set_task_completed!();
 
     Ok(())
 }

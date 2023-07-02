@@ -14,22 +14,28 @@ lazy_static! {
         Arc::new(Mutex::new(TaskStatusContainer::default()));
 }
 
-pub fn increment_status() {
-    let mut stat = TASK_STATUS_QUEUE.lock().unwrap();
-    match &mut stat.status {
-        Some(TaskStatus::TaskPercentage(name, len, val)) => {
-            info!("Updating task status with value {}", val);
-            stat.status = Some(TaskStatus::TaskPercentage(name.to_owned(), *len, *val + 1))
+macro_rules! increment_status {
+    () => {
+        let mut stat = TASK_STATUS_QUEUE.lock().unwrap();
+        match &mut stat.status {
+            Some(TaskStatus::TaskPercentage(name, len, val)) => {
+                info!("Updating task status with value {}", val);
+                stat.status = Some(TaskStatus::TaskPercentage(name.to_owned(), *len, *val + 1))
+            }
+            None => {}
         }
-        None => {}
-    }
+    };
 }
 
-pub fn set_task_status(task_name: &str, len: usize, cnt: usize) {
-    TASK_STATUS_QUEUE.lock().unwrap().status =
-        Some(TaskStatus::TaskPercentage(task_name.to_owned(), len, cnt))
+macro_rules! set_task_status {
+    ($name:expr, $len:expr, $cnt:expr) => {
+        taskstatus::TASK_STATUS_QUEUE.lock().unwrap().status =
+            Some(TaskStatus::TaskPercentage($name.to_owned(), $len, $cnt));
+    };
 }
 
-pub fn set_task_completed() {
-    TASK_STATUS_QUEUE.lock().unwrap().status = None
+macro_rules! set_task_completed {
+    () => {
+        taskstatus::TASK_STATUS_QUEUE.lock().unwrap().status = None
+    };
 }
