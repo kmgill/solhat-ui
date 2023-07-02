@@ -1,3 +1,15 @@
+#[macro_use]
+mod state;
+use state::*;
+
+#[macro_use]
+mod cancel;
+use cancel::*;
+
+#[macro_use]
+mod taskstatus;
+use taskstatus::*;
+
 use anyhow::{anyhow, Result};
 use gtk::ffi::gtk_picture_new_for_filename;
 use gtk::gdk::{Display, Texture};
@@ -20,6 +32,7 @@ use solhat::rotation::frame_rotation_analysis;
 use solhat::ser::{SerFile, SerFrame};
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
+
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::ffi::OsStr;
@@ -36,182 +49,6 @@ extern crate stump;
 
 #[macro_use]
 extern crate lazy_static;
-
-/// Describes the parameters needed to run the SolHat algorithm
-#[derive(Deserialize, Serialize, Clone)]
-struct ParametersState {
-    light: Option<PathBuf>,
-    dark: Option<PathBuf>,
-    flat: Option<PathBuf>,
-    darkflat: Option<PathBuf>,
-    bias: Option<PathBuf>,
-    hot_pixel_map: Option<PathBuf>,
-    output_dir: Option<PathBuf>,
-    freetext: String,
-    obs_latitude: f64,
-    obs_longitude: f64,
-    target: Target,
-    obj_detection_threshold: f64,
-    drizzle_scale: Scale,
-    max_frames: usize,
-    min_sigma: f64,
-    max_sigma: f64,
-    top_percentage: f64,
-}
-
-impl Default for ParametersState {
-    fn default() -> Self {
-        Self {
-            light: Default::default(),
-            dark: Default::default(),
-            flat: Default::default(),
-            darkflat: Default::default(),
-            bias: Default::default(),
-            hot_pixel_map: Default::default(),
-            output_dir: Default::default(),
-            freetext: Default::default(),
-            obs_latitude: 34.0,
-            obs_longitude: -118.0,
-            target: Target::Sun,
-            obj_detection_threshold: 2000.0,
-            drizzle_scale: Scale::Scale1_0,
-            max_frames: 5000,
-            min_sigma: 0.0,
-            max_sigma: 2000.0,
-            top_percentage: 10.0,
-        }
-    }
-}
-
-/// Describes the state of the UI
-#[derive(Deserialize, Serialize, Default, Clone)]
-struct UiState {
-    last_opened_folder: Option<PathBuf>,
-}
-
-#[derive(Deserialize, Serialize, Default, Clone)]
-struct ApplicationState {
-    pub params: ParametersState,
-    pub ui: UiState,
-}
-
-impl ApplicationState {
-    pub fn load_from_userhome() -> Result<Self> {
-        let config_file_path = dirs::home_dir().unwrap().join(".solhat/shconfig.toml");
-        if config_file_path.exists() {
-            info!(
-                "Window state config file exists at path: {:?}",
-                config_file_path
-            );
-            let t = std::fs::read_to_string(config_file_path)?;
-            Ok(toml::from_str(&t)?)
-        } else {
-            warn!("Window state config file does not exist. Will be created on exit");
-            Err(anyhow!("Config file does not exist"))
-        }
-    }
-
-    pub fn save_to_userhome(&self) -> Result<()> {
-        let toml_str = toml::to_string(&self).unwrap();
-        let solhat_config_dir = dirs::home_dir().unwrap().join(".solhat/");
-        if !solhat_config_dir.exists() {
-            fs::create_dir(&solhat_config_dir)?;
-        }
-        let config_file_path = solhat_config_dir.join("shconfig.toml");
-        let mut f = File::create(config_file_path)?;
-        f.write_all(toml_str.as_bytes())?;
-        debug!("{}", toml_str);
-        Ok(())
-    }
-}
-
-enum TaskStatus {
-    TaskPercentage(String, usize, usize),
-}
-
-#[derive(Default)]
-struct TaskStatusContainer {
-    status: Option<TaskStatus>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum CancelStatus {
-    NoStatus,        // Keep doing what you're doing...
-    CancelRequested, // Request cancel
-    Cancelled,       // Task has cancelled
-}
-
-struct CancelContainer {
-    status: CancelStatus,
-}
-
-lazy_static! {
-    // Oh, this is such a hacky way to do it I hate it so much.
-    // TODO: Learn the correct way to do this.
-    static ref STATE: Arc<Mutex<ApplicationState>> = Arc::new(Mutex::new(ApplicationState::default()));
-
-    static ref TASK_STATUS_QUEUE: Arc<Mutex<TaskStatusContainer>> =
-        Arc::new(Mutex::new(TaskStatusContainer::default()));
-
-    static ref CANCEL_TASK: Arc<Mutex<CancelContainer>> = Arc::new(Mutex::new(CancelContainer{
-        status: CancelStatus::NoStatus
-    }));
-}
-
-macro_rules! set_request_cancel {
-    () => {
-        CANCEL_TASK.lock().unwrap().status = CancelStatus::CancelRequested;
-    };
-}
-
-macro_rules! set_task_cancelled {
-    () => {
-        CANCEL_TASK.lock().unwrap().status = CancelStatus::Cancelled;
-    };
-}
-
-macro_rules! reset_cancel_status {
-    () => {
-        CANCEL_TASK.lock().unwrap().status = CancelStatus::NoStatus;
-    };
-}
-
-macro_rules! is_cancel_requested {
-    () => {
-        CANCEL_TASK.lock().unwrap().status == CancelStatus::CancelRequested
-    };
-}
-
-macro_rules! get_state_param {
-    ($prop:ident) => {
-        STATE.lock().unwrap().params.$prop
-    };
-}
-
-macro_rules! set_state_param {
-    ($prop:ident, $value:expr) => {
-        STATE.lock().unwrap().params.$prop = $value;
-    };
-}
-
-macro_rules! set_state_ui {
-    ($prop:ident, $value:expr) => {
-        STATE.lock().unwrap().ui.$prop = $value;
-    };
-}
-
-macro_rules! clear_last_opened_folder {
-    () => {
-        set_state_ui!(last_opened_folder, None);
-    };
-}
-
-macro_rules! set_last_opened_folder {
-    ($dir:expr) => {
-        set_state_ui!(last_opened_folder, Some($dir));
-        info!("Setting last opened folder to {:?}", $dir);
-    };
-}
 
 #[tokio::main]
 async fn main() -> Result<glib::ExitCode> {
@@ -543,7 +380,7 @@ fn build_ui(application: &Application) {
         set_request_cancel!();
     });
     let update_state_callback = glib::clone!(@weak label, @weak start => @default-return Continue(true), move || {
-        let proc_status = TASK_STATUS_QUEUE.lock().unwrap();
+        let proc_status = taskstatus::TASK_STATUS_QUEUE.lock().unwrap();
         match &proc_status.status {
             Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
                 let pct = if *len > 0 {
@@ -748,26 +585,6 @@ fn build_solhat_parameters() -> ProcessParameters {
     }
 }
 
-fn increment_status() {
-    let mut stat = TASK_STATUS_QUEUE.lock().unwrap();
-    match &mut stat.status {
-        Some(TaskStatus::TaskPercentage(name, len, val)) => {
-            info!("Updating task status with value {}", val);
-            stat.status = Some(TaskStatus::TaskPercentage(name.to_owned(), *len, *val + 1))
-        }
-        None => {}
-    }
-}
-
-fn set_task_status(task_name: &str, len: usize, cnt: usize) {
-    TASK_STATUS_QUEUE.lock().unwrap().status =
-        Some(TaskStatus::TaskPercentage(task_name.to_owned(), len, cnt))
-}
-
-fn set_task_completed() {
-    TASK_STATUS_QUEUE.lock().unwrap().status = None
-}
-
 macro_rules! check_cancel_status {
     () => {
         if is_cancel_requested!() {
@@ -841,11 +658,14 @@ async fn run_async() -> Result<()> {
         check_cancel_status!();
     })?;
 
+    check_cancel_status!();
     set_task_status("Applying Frame Limits", context.frame_records.len(), 0);
     context.frame_records = frame_limit_determinate(&context, |_fr| {
-        info!("frame_limit_determinate(): Frame processed.")
+        info!("frame_limit_determinate(): Frame processed.");
+        check_cancel_status!();
     })?;
 
+    check_cancel_status!();
     set_task_status(
         "Computing Parallactic Angle Rotations",
         context.frame_records.len(),
@@ -857,8 +677,10 @@ async fn run_async() -> Result<()> {
             "Rotation for frame is {} degrees",
             fr.computed_rotation.to_degrees()
         );
+        check_cancel_status!();
     })?;
 
+    check_cancel_status!();
     set_task_status(
         "Computing Center-of-Mass Offsets",
         context.frame_records.len(),
@@ -866,18 +688,21 @@ async fn run_async() -> Result<()> {
     );
     context.frame_records = frame_offset_analysis(&context, |_fr| {
         increment_status();
-        info!("frame_offset_analysis(): Frame processed.")
+        info!("frame_offset_analysis(): Frame processed.");
+        check_cancel_status!();
     })?;
 
     if context.frame_records.is_empty() {
         println!("Zero frames to stack. Cannot continue");
     } else {
+        check_cancel_status!();
         set_task_status("Stacking", context.frame_records.len(), 0);
         let drizzle_output = process_frame_stacking(&context, |_fr| {
             info!("process_frame_stacking(): Frame processed.");
             increment_status();
         })?;
 
+        check_cancel_status!();
         set_task_status("Finalizing", 2, 1);
         let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
 
