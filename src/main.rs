@@ -134,6 +134,17 @@ struct TaskStatusContainer {
     status: Option<TaskStatus>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum CancelStatus {
+    NoStatus,        // Keep doing what you're doing...
+    CancelRequested, // Request cancel
+    Cancelled,       // Task has cancelled
+}
+
+struct CancelContainer {
+    status: CancelStatus,
+}
+
 lazy_static! {
     // Oh, this is such a hacky way to do it I hate it so much.
     // TODO: Learn the correct way to do this.
@@ -141,6 +152,34 @@ lazy_static! {
 
     static ref TASK_STATUS_QUEUE: Arc<Mutex<TaskStatusContainer>> =
         Arc::new(Mutex::new(TaskStatusContainer::default()));
+
+    static ref CANCEL_TASK: Arc<Mutex<CancelContainer>> = Arc::new(Mutex::new(CancelContainer{
+        status: CancelStatus::NoStatus
+    }));
+}
+
+macro_rules! set_request_cancel {
+    () => {
+        CANCEL_TASK.lock().unwrap().status = CancelStatus::CancelRequested;
+    };
+}
+
+macro_rules! set_task_cancelled {
+    () => {
+        CANCEL_TASK.lock().unwrap().status = CancelStatus::Cancelled;
+    };
+}
+
+macro_rules! reset_cancel_status {
+    () => {
+        CANCEL_TASK.lock().unwrap().status = CancelStatus::NoStatus;
+    };
+}
+
+macro_rules! is_cancel_requested {
+    () => {
+        CANCEL_TASK.lock().unwrap().status == CancelStatus::CancelRequested
+    };
 }
 
 macro_rules! get_state_param {
@@ -499,6 +538,10 @@ fn build_ui(application: &Application) {
     // let b = Rc::new(Cell::new(builder.clone()));
     let label: Label = bind_object!(b, "lbl_task_status");
     let progress: ProgressBar = bind_object!(b, "prg_task_progress");
+    let cancel: Button = bind_object!(b, "btn_cancel");
+    cancel.connect_clicked(move |_| {
+        set_request_cancel!();
+    });
     let update_state_callback = glib::clone!(@weak label, @weak start => @default-return Continue(true), move || {
         let proc_status = TASK_STATUS_QUEUE.lock().unwrap();
         match &proc_status.status {
@@ -510,14 +553,18 @@ fn build_ui(application: &Application) {
                 };
                 label.set_visible(true);
                 progress.set_visible(true);
+                cancel.set_visible(true);
                 label.set_label(&task_name);
                 progress.set_fraction(pct);
                 start.set_sensitive(false);
+                cancel.set_sensitive(true);
             },
             None => {
                 label.set_visible(false);
                 progress.set_visible(false);
+                cancel.set_visible(false);
                 start.set_sensitive(true);
+                cancel.set_sensitive(false);
             }
         };
         // let spn: Spinner = bind_object!(b, "prg_task_progress");
@@ -721,6 +768,17 @@ fn set_task_completed() {
     TASK_STATUS_QUEUE.lock().unwrap().status = None
 }
 
+macro_rules! check_cancel_status {
+    () => {
+        if is_cancel_requested!() {
+            set_task_cancelled!();
+            set_task_completed();
+            warn!("Task cancellation request detected. Stopping progress");
+            panic!("Cancelling!");
+        }
+    };
+}
+
 async fn run_async() -> Result<()> {
     info!("Async task started");
 
@@ -735,6 +793,8 @@ async fn run_async() -> Result<()> {
         CalibrationImage::new_empty()
     };
 
+    check_cancel_status!();
+
     set_task_status("Processing Master Dark Flat", 2, 1);
     let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
         info!("Processing master dark flat...");
@@ -742,6 +802,8 @@ async fn run_async() -> Result<()> {
     } else {
         CalibrationImage::new_empty()
     };
+
+    check_cancel_status!();
 
     set_task_status("Processing Master Dark", 2, 1);
     let master_dark = if let Some(inputs) = &params.dark_inputs {
@@ -751,6 +813,8 @@ async fn run_async() -> Result<()> {
         CalibrationImage::new_empty()
     };
 
+    check_cancel_status!();
+
     // set_task_status("Processing Master Bias", 2, 1);
     let master_bias = if let Some(inputs) = &params.bias_inputs {
         info!("Processing master bias...");
@@ -758,6 +822,8 @@ async fn run_async() -> Result<()> {
     } else {
         CalibrationImage::new_empty()
     };
+
+    check_cancel_status!();
 
     info!("Creating process context struct");
     let mut context = ProcessContext::create_with_calibration_frames(
@@ -771,7 +837,8 @@ async fn run_async() -> Result<()> {
     set_task_status("Frame Sigma Analysis", context.frame_records.len(), 0);
     context.frame_records = frame_sigma_analysis(&context, |_fr| {
         increment_status();
-        info!("frame_sigma_analysis(): Frame processed.")
+        info!("frame_sigma_analysis(): Frame processed.");
+        check_cancel_status!();
     })?;
 
     set_task_status("Applying Frame Limits", context.frame_records.len(), 0);
