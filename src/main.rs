@@ -3,14 +3,22 @@ use gtk::ffi::gtk_picture_new_for_filename;
 use gtk::gdk::{Display, Texture};
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::{
-    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, SpinButton,
-    STYLE_PROVIDER_PRIORITY_APPLICATION,
+    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
+    SpinButton, Spinner, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
+use image::Progress;
 use itertools::iproduct;
 use serde::{Deserialize, Serialize};
+use solhat::anaysis::frame_sigma_analysis;
+use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
+use solhat::context::{ProcessContext, ProcessParameters};
 use solhat::drizzle::Scale;
+use solhat::limiting::frame_limit_determinate;
+use solhat::offsetting::frame_offset_analysis;
+use solhat::rotation::frame_rotation_analysis;
 use solhat::ser::{SerFile, SerFrame};
+use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
@@ -21,6 +29,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 #[macro_use]
 extern crate stump;
@@ -116,10 +125,22 @@ impl ApplicationState {
     }
 }
 
+enum TaskStatus {
+    TaskPercentage(String, usize, usize),
+}
+
+#[derive(Default)]
+struct TaskStatusContainer {
+    status: Option<TaskStatus>,
+}
+
 lazy_static! {
     // Oh, this is such a hacky way to do it I hate it so much.
     // TODO: Learn the correct way to do this.
     static ref STATE: Arc<Mutex<ApplicationState>> = Arc::new(Mutex::new(ApplicationState::default()));
+
+    static ref TASK_STATUS_QUEUE: Arc<Mutex<TaskStatusContainer>> =
+        Arc::new(Mutex::new(TaskStatusContainer::default()));
 }
 
 macro_rules! get_state_param {
@@ -247,7 +268,7 @@ macro_rules! bind_open_clear {
                 set_state_param!($state_prop, Some(f.to_owned()));
                 update_output_filename!(builder);
                 set_last_opened_folder!(f.parent().unwrap().to_owned());
-
+                update_execute_state!(builder);
                 // We'll update regardless of which input data was opened as the goal
                 // is to provide a minimal calibration as data is identified prior to showing
                 // the preview to the user
@@ -258,9 +279,8 @@ macro_rules! bind_open_clear {
         let b = $builder.clone();
         btn_clear.connect_clicked(glib::clone!(@strong label, @weak b as builder => move |_| {
             label.set_label("");
-            let mut s = STATE.lock().unwrap();
-            debug!("Was: {:?}", s.params.$state_prop);
-            s.params.$state_prop = None;
+            set_state_param!($state_prop, None);
+            update_execute_state!(builder);
             update_output_filename!(builder);
         }));
     }};
@@ -273,6 +293,22 @@ macro_rules! bind_spinner {
         spn_obj.connect_changed(|e| {
             set_state_param!($state_prop, e.value() as $type);
         });
+    };
+}
+
+macro_rules! set_execute_enabled {
+    ($builder:expr,$enabled:expr) => {
+        let start: Button = bind_object!($builder, "btn_execute");
+        start.set_sensitive($enabled);
+    };
+}
+
+macro_rules! update_execute_state {
+    ($builder:expr) => {
+        set_execute_enabled!(
+            $builder,
+            get_state_param!(light).is_some() && get_state_param!(output_dir).is_some()
+        );
     };
 }
 
@@ -444,6 +480,53 @@ fn build_ui(application: &Application) {
     bind_spinner!(builder, "spn_max_sigma", max_sigma, f64);
     bind_spinner!(builder, "spn_top_percentage", top_percentage, f64);
 
+    update_execute_state!(builder);
+    // set_execute_enabled!(builder, false);
+    let start: Button = bind_object!(builder, "btn_execute");
+    let b = builder.clone();
+    start.connect_clicked(glib::clone!(@weak window, @weak b as builder => move |_| {
+        debug!("Start has been clicked");
+        tokio::spawn(async move {
+            {
+                run_async().await.unwrap(); //.await.unwrap();
+            }
+        });
+    }));
+
+    ////////
+    // Task Monitor
+    ////////
+    // let b = Rc::new(Cell::new(builder.clone()));
+    let label: Label = bind_object!(b, "lbl_task_status");
+    let progress: ProgressBar = bind_object!(b, "prg_task_progress");
+    let update_state_callback = glib::clone!(@weak label, @weak start => @default-return Continue(true), move || {
+        let proc_status = TASK_STATUS_QUEUE.lock().unwrap();
+        match &proc_status.status {
+            Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
+                let pct = if *len > 0 {
+                    *cnt as f64 / *len as f64
+                } else {
+                    0.0
+                };
+                label.set_visible(true);
+                progress.set_visible(true);
+                label.set_label(&task_name);
+                progress.set_fraction(pct);
+                start.set_sensitive(false);
+            },
+            None => {
+                label.set_visible(false);
+                progress.set_visible(false);
+                start.set_sensitive(true);
+            }
+        };
+        // let spn: Spinner = bind_object!(b, "prg_task_progress");
+
+        Continue(true)
+    });
+
+    let source_id = glib::timeout_add_local(Duration::from_millis(250), update_state_callback);
+
     update_output_filename!(builder);
 
     // If there's a file in the parameters state already (such as from saved state),
@@ -581,4 +664,179 @@ fn ser_frame_to_picture(ser_frame: &SerFrame) -> Result<Pixbuf> {
         pix.put_pixel(x as u32, y as u32, r as u8, g as u8, b as u8, 255);
     });
     Ok(pix)
+}
+
+macro_rules! p2s {
+    ($pb:expr) => {
+        if let Some(pb) = &$pb {
+            Some(pb.as_os_str().to_str().unwrap().to_string().to_owned())
+        } else {
+            None
+        }
+    };
+}
+
+fn build_solhat_parameters() -> ProcessParameters {
+    let state = STATE.lock().unwrap();
+
+    ProcessParameters {
+        input_files: vec![p2s!(state.params.light).unwrap()],
+        obj_detection_threshold: state.params.obj_detection_threshold,
+        obs_latitude: state.params.obs_latitude,
+        obs_longitude: state.params.obs_longitude,
+        target: state.params.target,
+        crop_width: None,
+        crop_height: None,
+        max_frames: Some(state.params.max_frames),
+        min_sigma: Some(state.params.min_sigma),
+        max_sigma: Some(state.params.max_sigma),
+        top_percentage: Some(state.params.top_percentage),
+        drizzle_scale: state.params.drizzle_scale,
+        initial_rotation: 0.0,
+        flat_inputs: p2s!(state.params.flat),
+        dark_inputs: p2s!(state.params.dark),
+        darkflat_inputs: p2s!(state.params.darkflat),
+        bias_inputs: p2s!(state.params.bias),
+        hot_pixel_map: p2s!(state.params.hot_pixel_map),
+    }
+}
+
+fn increment_status() {
+    let mut stat = TASK_STATUS_QUEUE.lock().unwrap();
+    match &mut stat.status {
+        Some(TaskStatus::TaskPercentage(name, len, val)) => {
+            info!("Updating task status with value {}", val);
+            stat.status = Some(TaskStatus::TaskPercentage(name.to_owned(), *len, *val + 1))
+        }
+        None => {}
+    }
+}
+
+fn set_task_status(task_name: &str, len: usize, cnt: usize) {
+    TASK_STATUS_QUEUE.lock().unwrap().status =
+        Some(TaskStatus::TaskPercentage(task_name.to_owned(), len, cnt))
+}
+
+fn set_task_completed() {
+    TASK_STATUS_QUEUE.lock().unwrap().status = None
+}
+
+async fn run_async() -> Result<()> {
+    info!("Async task started");
+
+    let output_filename = assemble_output_filename()?;
+    let params = build_solhat_parameters();
+
+    set_task_status("Processing Master Flat", 2, 1);
+    let master_flat = if let Some(inputs) = &params.flat_inputs {
+        info!("Processing master flat...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    set_task_status("Processing Master Dark Flat", 2, 1);
+    let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
+        info!("Processing master dark flat...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    set_task_status("Processing Master Dark", 2, 1);
+    let master_dark = if let Some(inputs) = &params.dark_inputs {
+        info!("Processing master dark...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    // set_task_status("Processing Master Bias", 2, 1);
+    let master_bias = if let Some(inputs) = &params.bias_inputs {
+        info!("Processing master bias...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    info!("Creating process context struct");
+    let mut context = ProcessContext::create_with_calibration_frames(
+        &params,
+        master_flat,
+        master_darkflat,
+        master_dark,
+        master_bias,
+    )?;
+
+    set_task_status("Frame Sigma Analysis", context.frame_records.len(), 0);
+    context.frame_records = frame_sigma_analysis(&context, |_fr| {
+        increment_status();
+        info!("frame_sigma_analysis(): Frame processed.")
+    })?;
+
+    set_task_status("Applying Frame Limits", context.frame_records.len(), 0);
+    context.frame_records = frame_limit_determinate(&context, |_fr| {
+        info!("frame_limit_determinate(): Frame processed.")
+    })?;
+
+    set_task_status(
+        "Computing Parallactic Angle Rotations",
+        context.frame_records.len(),
+        0,
+    );
+    context.frame_records = frame_rotation_analysis(&context, |fr| {
+        increment_status();
+        info!(
+            "Rotation for frame is {} degrees",
+            fr.computed_rotation.to_degrees()
+        );
+    })?;
+
+    set_task_status(
+        "Computing Center-of-Mass Offsets",
+        context.frame_records.len(),
+        0,
+    );
+    context.frame_records = frame_offset_analysis(&context, |_fr| {
+        increment_status();
+        info!("frame_offset_analysis(): Frame processed.")
+    })?;
+
+    if context.frame_records.is_empty() {
+        println!("Zero frames to stack. Cannot continue");
+    } else {
+        set_task_status("Stacking", context.frame_records.len(), 0);
+        let drizzle_output = process_frame_stacking(&context, |_fr| {
+            info!("process_frame_stacking(): Frame processed.");
+            increment_status();
+        })?;
+
+        set_task_status("Finalizing", 2, 1);
+        let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
+
+        // Let the user know some stuff...
+        let (stackmin, stackmax) = stacked_buffer.get_min_max_all_channel();
+        info!(
+            "    Stack Min/Max : {}, {} ({} images)",
+            stackmin,
+            stackmax,
+            context.frame_records.len()
+        );
+        stacked_buffer.normalize_to_16bit();
+        info!(
+            "Final image size: {}, {}",
+            stacked_buffer.width, stacked_buffer.height
+        );
+
+        // Save finalized image to disk
+        set_task_status("Saving", 2, 1);
+        stacked_buffer.save(output_filename.to_string_lossy().as_ref())?;
+
+        // The user will likely never see this actually appear on screen
+        set_task_status("Done", 1, 1);
+    }
+
+    set_task_completed();
+
+    Ok(())
 }
