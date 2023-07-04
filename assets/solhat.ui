@@ -16,6 +16,8 @@
         <property name="width-request">400</property>
         <child>
           <object class="GtkBox">
+            <property name="css-classes">left_side_box</property>
+            <property name="hexpand-set">True</property>
             <property name="orientation">vertical</property>
             <child>
               <object class="GtkLabel">
@@ -980,16 +982,64 @@
                 </child>
               </object>
             </child>
+            <style>
+              <class name="left_side_box"/>
+            </style>
           </object>
         </child>
         <child>
-          <object class="GtkPicture" id="img_preview">
-            <property name="margin-bottom">5</property>
-            <property name="margin-end">5</property>
-            <property name="margin-start">5</property>
-            <property name="margin-top">5</property>
-            <property name="valign">start</property>
-            <property name="width-request">512</property>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="hexpand">True</property>
+                <property name="hexpand-set">True</property>
+                <property name="label">Preview</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+                <style>
+                  <class name="section_header"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkPicture" id="img_preview">
+                <property name="hexpand">True</property>
+                <property name="hexpand-set">True</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+                <property name="valign">start</property>
+                <property name="vexpand">True</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSeparator"/>
+            </child>
+            <child>
+              <object class="GtkScrolledWindow">
+                <property name="child">
+                  <object class="GtkTextView" id="txt_log_output">
+                    <property name="buffer">
+                      <object class="GtkTextBuffer" id="txt_log_buffer"/>
+                    </property>
+                    <property name="editable">False</property>
+                    <property name="hexpand">True</property>
+                    <property name="monospace">True</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </property>
+                <property name="hexpand">True</property>
+                <property name="margin-bottom">3</property>
+                <property name="margin-end">3</property>
+                <property name="margin-start">3</property>
+                <property name="margin-top">3</property>
+                <property name="vexpand">True</property>
+              </object>
+            </child>
           </object>
         </child>
       </object>

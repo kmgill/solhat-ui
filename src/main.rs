@@ -16,7 +16,7 @@ use gtk::gdk::{Display, Texture};
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
-    SpinButton, Spinner, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    SpinButton, Spinner, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
 use image::Progress;
@@ -33,6 +33,8 @@ use solhat::ser::{SerFile, SerFrame};
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
 
+use queues::IsQueue;
+use queues::{queue, Queue};
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::ffi::OsStr;
@@ -49,6 +51,15 @@ extern crate stump;
 
 #[macro_use]
 extern crate lazy_static;
+
+#[derive(Debug)]
+pub struct LogQueue {
+    q: Queue<String>,
+}
+
+lazy_static! {
+    static ref LOG_QUEUE: Arc<Mutex<LogQueue>> = Arc::new(Mutex::new(LogQueue { q: queue![] }));
+}
 
 #[tokio::main]
 async fn main() -> Result<glib::ExitCode> {
@@ -249,7 +260,7 @@ fn build_ui(application: &Application) {
         "btn_bias_open",
         "btn_bias_clear",
         "lbl_bias",
-        flat,
+        bias,
         open_ser_file
     );
 
@@ -376,6 +387,7 @@ fn build_ui(application: &Application) {
     let label: Label = bind_object!(b, "lbl_task_status");
     let progress: ProgressBar = bind_object!(b, "prg_task_progress");
     let cancel: Button = bind_object!(b, "btn_cancel");
+    let log_buffer: TextBuffer = bind_object!(builder, "txt_log_buffer");
     cancel.connect_clicked(move |_| {
         set_request_cancel!();
     });
@@ -406,10 +418,38 @@ fn build_ui(application: &Application) {
         };
         // let spn: Spinner = bind_object!(b, "prg_task_progress");
 
+        let mut q = LOG_QUEUE
+            .lock()
+            .unwrap();
+
+        while q.q.size() > 0 {
+            let s = q.q.remove().expect("Failed to remove queue item");
+            let start = log_buffer.start_iter();
+            let end = log_buffer.end_iter();
+            let t = log_buffer.text(&start, &end, false).to_string();
+            let c = s + "\n"+ t.as_str();
+            log_buffer.set_text(&c);
+        }
+
+
         Continue(true)
     });
 
     let source_id = glib::timeout_add_local(Duration::from_millis(250), update_state_callback);
+
+    ////////
+    // Logging
+    ////////
+    //
+    stump::set_print(|s| {
+        LOG_QUEUE
+            .lock()
+            .unwrap()
+            .q
+            .add(s.to_owned())
+            .expect("Queue add failed");
+        println!("{}", s);
+    });
 
     update_output_filename!(builder);
 
@@ -633,7 +673,7 @@ async fn run_async() -> Result<()> {
 
     check_cancel_status!();
 
-    // set_task_status("Processing Master Bias", 2, 1);
+    set_task_status!("Processing Master Bias", 2, 1);
     let master_bias = if let Some(inputs) = &params.bias_inputs {
         info!("Processing master bias...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -653,9 +693,12 @@ async fn run_async() -> Result<()> {
     )?;
 
     set_task_status!("Frame Sigma Analysis", context.frame_records.len(), 0);
-    context.frame_records = frame_sigma_analysis(&context, |_fr| {
+    context.frame_records = frame_sigma_analysis(&context, |fr| {
         increment_status!();
-        info!("frame_sigma_analysis(): Frame processed.");
+        info!(
+            "frame_sigma_analysis(): Frame processed with sigma {}",
+            fr.sigma
+        );
         check_cancel_status!();
     })?;
 
