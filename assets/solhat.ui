@@ -992,7 +992,7 @@
           <object class="GtkPaned">
             <property name="end-child">
 
-            <object class="GtkScrolledWindow">
+              <object class="GtkScrolledWindow">
                 <property name="child">
                   <object class="GtkTextView" id="txt_log_output">
                     <property name="buffer">
@@ -1014,24 +1014,11 @@
             </property>
             <property name="orientation">vertical</property>
             <property name="start-child">
-              <object class="GtkBox">
-                <property name="orientation">vertical</property>
+              <object class="GtkNotebook">
+
+                <!-- Light -->
                 <child>
-                  <object class="GtkLabel">
-                    <property name="hexpand">True</property>
-                    <property name="hexpand-set">True</property>
-                    <property name="label">Preview</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <style>
-                      <class name="section_header"/>
-                    </style>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkPicture" id="img_preview">
+                  <object class="GtkPicture" id="img_preview_light">
                     <property name="hexpand">True</property>
                     <property name="hexpand-set">True</property>
                     <property name="margin-bottom">3</property>
@@ -1042,9 +1029,89 @@
                     <property name="vexpand">True</property>
                   </object>
                 </child>
+                <child type="tab">
+                  <object class="GtkLabel" id="notebook-tab">
+                    <property name="label">Light</property>
+                  </object>
+                </child>
+
+                <!-- Dark -->
+                <child>
+                  <object class="GtkPicture" id="img_preview_dark">
+                    <property name="hexpand">True</property>
+                    <property name="hexpand-set">True</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="valign">start</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </child>
+                <child type="tab">
+                  <object class="GtkLabel" id="notebook-tab-dark">
+                    <property name="label">Dark</property>
+                  </object>
+                </child>
+
+                <!-- Flat -->
+                <child>
+                  <object class="GtkPicture" id="img_preview_flat">
+                    <property name="hexpand">True</property>
+                    <property name="hexpand-set">True</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="valign">start</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </child>
+                <child type="tab">
+                  <object class="GtkLabel" id="notebook-tab-flat">
+                    <property name="label">Flat</property>
+                  </object>
+                </child>
+
+                <!-- Dark Flat -->
+                <child>
+                  <object class="GtkPicture" id="img_preview_darkflat">
+                    <property name="hexpand">True</property>
+                    <property name="hexpand-set">True</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="valign">start</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </child>
+                <child type="tab">
+                  <object class="GtkLabel" id="notebook-tab-darkflat">
+                    <property name="label">Dark Flat</property>
+                  </object>
+                </child>
+
+                <!-- Bias -->
+                <child>
+                  <object class="GtkPicture" id="img_preview_bias">
+                    <property name="hexpand">True</property>
+                    <property name="hexpand-set">True</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="valign">start</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </child>
+                <child type="tab">
+                  <object class="GtkLabel" id="notebook-tab-bias">
+                    <property name="label">Bias</property>
+                  </object>
+                </child>
+
               </object>
-
-
 
 
               

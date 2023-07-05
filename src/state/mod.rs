@@ -4,7 +4,7 @@ use solhat::drizzle::Scale;
 use solhat::target::Target;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 /// Describes the parameters needed to run the SolHat algorithm
