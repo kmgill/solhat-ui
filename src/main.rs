@@ -108,8 +108,8 @@ macro_rules! update_output_filename {
 }
 
 macro_rules! update_preview_from_ser_file {
-    ($builder:expr,$ser_file_path:expr) => {
-        let pic: Picture = bind_object!($builder, "img_preview");
+    ($builder:expr,$ser_file_path:expr, $preview_id:expr) => {
+        let pic: Picture = bind_object!($builder, $preview_id);
 
         if let Some(ext) = $ser_file_path.extension() {
             match ext.to_str().unwrap() {
@@ -128,7 +128,7 @@ macro_rules! update_preview_from_ser_file {
 
 /// Binds the controls for the input files. The controls are the label, open, and clear buttons
 macro_rules! bind_open_clear {
-    ($builder:expr, $window:expr, $open_id:expr, $clear_id:expr, $label_id:expr,$state_prop:ident, $opener:ident) => {{
+    ($builder:expr, $window:expr, $open_id:expr, $clear_id:expr, $label_id:expr, $preview_id:expr, $state_prop:ident, $opener:ident) => {{
         let btn_open: Button = bind_object!($builder, $open_id);
         let btn_clear: Button = bind_object!($builder, $clear_id);
         let label: Label = bind_object!($builder, $label_id);
@@ -152,7 +152,10 @@ macro_rules! bind_open_clear {
                 // We'll update regardless of which input data was opened as the goal
                 // is to provide a minimal calibration as data is identified prior to showing
                 // the preview to the user
-                update_preview_from_ser_file!(builder, f);
+                if !$preview_id.is_empty()  {
+                    update_preview_from_ser_file!(builder, f, $preview_id);
+                }
+
             }));
         }));
 
@@ -214,6 +217,7 @@ fn build_ui(application: &Application) {
         "btn_light_open",
         "btn_light_clear",
         "lbl_light",
+        "img_preview_light",
         light,
         open_ser_file
     );
@@ -224,6 +228,7 @@ fn build_ui(application: &Application) {
         "btn_dark_open",
         "btn_dark_clear",
         "lbl_dark",
+        "img_preview_dark",
         dark,
         open_ser_file
     );
@@ -234,6 +239,7 @@ fn build_ui(application: &Application) {
         "btn_flat_open",
         "btn_flat_clear",
         "lbl_flat",
+        "img_preview_flat",
         flat,
         open_ser_file
     );
@@ -244,6 +250,7 @@ fn build_ui(application: &Application) {
         "btn_darkflat_open",
         "btn_darkflat_clear",
         "lbl_darkflat",
+        "img_preview_darkflat",
         darkflat,
         open_ser_file
     );
@@ -254,6 +261,7 @@ fn build_ui(application: &Application) {
         "btn_bias_open",
         "btn_bias_clear",
         "lbl_bias",
+        "img_preview_bias",
         bias,
         open_ser_file
     );
@@ -264,8 +272,9 @@ fn build_ui(application: &Application) {
         "btn_hotpixelmap_open",
         "btn_hotpixelmap_clear",
         "lbl_hotpixelmap",
+        "",
         hot_pixel_map,
-        open_ser_file
+        open_toml_file
     );
 
     ////////
@@ -450,7 +459,7 @@ fn build_ui(application: &Application) {
     // If there's a file in the parameters state already (such as from saved state),
     // we need to update the preview pane.
     if let Some(light_path) = &STATE.lock().unwrap().params.light {
-        update_preview_from_ser_file!(builder, light_path);
+        update_preview_from_ser_file!(builder, light_path, "img_preview_light");
     }
 
     window.present();
@@ -460,10 +469,29 @@ fn open_ser_file<F>(title: &str, window: &ApplicationWindow, callback: F)
 where
     F: Fn(PathBuf) + 'static,
 {
+    open_file(title, window, "video/ser", "SER", callback);
+}
+
+fn open_toml_file<F>(title: &str, window: &ApplicationWindow, callback: F)
+where
+    F: Fn(PathBuf) + 'static,
+{
+    open_file(title, window, "application/toml", "toml", callback);
+}
+
+fn open_file<F>(
+    title: &str,
+    window: &ApplicationWindow,
+    mimetype: &str,
+    mimename: &str,
+    callback: F,
+) where
+    F: Fn(PathBuf) + 'static,
+{
     let filters = gio::ListStore::new(Type::OBJECT);
     let ser_filter = gtk::FileFilter::new();
-    ser_filter.add_mime_type("video/ser");
-    ser_filter.set_name(Some("SER"));
+    ser_filter.add_mime_type(mimetype);
+    ser_filter.set_name(Some(mimename));
     filters.append(&ser_filter);
 
     let dialog = gtk::FileDialog::builder()
@@ -686,6 +714,18 @@ async fn run_async() -> Result<()> {
         master_bias,
     )?;
 
+    check_cancel_status!();
+    set_task_status!(
+        "Computing Center-of-Mass Offsets",
+        context.frame_records.len(),
+        0
+    );
+    context.frame_records = frame_offset_analysis(&context, |_fr| {
+        increment_status!();
+        info!("frame_offset_analysis(): Frame processed.");
+        check_cancel_status!();
+    })?;
+
     set_task_status!("Frame Sigma Analysis", context.frame_records.len(), 0);
     context.frame_records = frame_sigma_analysis(&context, |fr| {
         increment_status!();
@@ -715,18 +755,6 @@ async fn run_async() -> Result<()> {
             "Rotation for frame is {} degrees",
             fr.computed_rotation.to_degrees()
         );
-        check_cancel_status!();
-    })?;
-
-    check_cancel_status!();
-    set_task_status!(
-        "Computing Center-of-Mass Offsets",
-        context.frame_records.len(),
-        0
-    );
-    context.frame_records = frame_offset_analysis(&context, |_fr| {
-        increment_status!();
-        info!("frame_offset_analysis(): Frame processed.");
         check_cancel_status!();
     })?;
 
