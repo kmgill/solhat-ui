@@ -1,5 +1,6 @@
 #[macro_use]
 mod state;
+use gtk::glib::Type;
 use state::*;
 
 #[macro_use]
@@ -10,18 +11,18 @@ use cancel::*;
 mod taskstatus;
 use taskstatus::*;
 
-use anyhow::{anyhow, Result};
-use gtk::ffi::gtk_picture_new_for_filename;
-use gtk::gdk::{Display, Texture};
+use anyhow::Result;
+use gtk::gdk::Display;
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
+#[allow(deprecated)]
 use gtk::{
-    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
-    SpinButton, Spinner, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    gio, prelude::*, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar, SpinButton,
+    TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
-use image::Progress;
 use itertools::iproduct;
-use serde::{Deserialize, Serialize};
+use queues::IsQueue;
+use queues::{queue, Queue};
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
 use solhat::context::{ProcessContext, ProcessParameters};
@@ -32,16 +33,8 @@ use solhat::rotation::frame_rotation_analysis;
 use solhat::ser::{SerFile, SerFrame};
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
-
-use queues::IsQueue;
-use queues::{queue, Queue};
-use std::borrow::Borrow;
-use std::cell::{Cell, RefCell};
 use std::ffi::OsStr;
-use std::fs::{self, File};
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -68,7 +61,7 @@ async fn main() -> Result<glib::ExitCode> {
 
     let application = gtk::Application::new(Some("com.apoapsys.solhat"), Default::default());
 
-    application.connect_startup(|app| {
+    application.connect_startup(|_| {
         // The CSS "magic" happens here.
         let provider = CssProvider::new();
         provider.load_from_data(include_str!("../assets/styles.css"));
@@ -199,6 +192,7 @@ macro_rules! update_execute_state {
     };
 }
 
+#[allow(deprecated)]
 fn build_ui(application: &Application) {
     let ui_src = include_str!("../assets/solhat.ui");
     let builder = Builder::from_string(ui_src);
@@ -435,7 +429,7 @@ fn build_ui(application: &Application) {
         Continue(true)
     });
 
-    let source_id = glib::timeout_add_local(Duration::from_millis(250), update_state_callback);
+    let _ = glib::timeout_add_local(Duration::from_millis(250), update_state_callback);
 
     ////////
     // Logging
@@ -466,22 +460,22 @@ fn open_ser_file<F>(title: &str, window: &ApplicationWindow, callback: F)
 where
     F: Fn(PathBuf) + 'static,
 {
+    let filters = gio::ListStore::new(Type::OBJECT);
     let ser_filter = gtk::FileFilter::new();
     ser_filter.add_mime_type("video/ser");
     ser_filter.set_name(Some("SER"));
-    // Add filter
+    filters.append(&ser_filter);
 
     let dialog = gtk::FileDialog::builder()
         .title(title)
         .accept_label("Open")
         .modal(true)
-        // .default_filter(&ser_filter)
+        .filters(&filters)
         .build();
 
     dialog.open(Some(window), gio::Cancellable::NONE, move |file| {
         if let Ok(file) = file {
             let filename = file.path().expect("Couldn't get file path");
-
             callback(filename);
         }
     });
