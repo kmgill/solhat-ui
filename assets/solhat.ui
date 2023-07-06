@@ -992,7 +992,7 @@
           <object class="GtkPaned">
             <property name="end-child">
 
-              <object class="GtkScrolledWindow">
+              <object class="GtkScrolledWindow" id="scrl_log_output">
                 <property name="child">
                   <object class="GtkTextView" id="txt_log_output">
                     <property name="buffer">

@@ -16,8 +16,8 @@ use gtk::gdk::Display;
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 #[allow(deprecated)]
 use gtk::{
-    gio, prelude::*, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar, SpinButton,
-    TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
+    ScrolledWindow, SpinButton, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use gtk::{glib, Application, ApplicationWindow, Builder, Button};
 use itertools::iproduct;
@@ -172,9 +172,12 @@ macro_rules! bind_open_clear {
 macro_rules! bind_spinner {
     ($builder:expr, $obj_id:expr, $state_prop:ident, $type:ident) => {
         let spn_obj: SpinButton = bind_object!($builder, $obj_id);
-        spn_obj.set_value(get_state_param!($state_prop) as f64);
-        spn_obj.connect_changed(|e| {
+        let spn_adj: Adjustment = spn_obj.adjustment();
+        spn_adj.set_value(get_state_param!($state_prop) as f64);
+        spn_adj.connect_value_changed(|e| {
+            info!("Spinner with id {} set to {}", $obj_id, e.value());
             set_state_param!($state_prop, e.value() as $type);
+            info!("State param is now {}", get_state_param!($state_prop));
         });
     };
 }
@@ -391,6 +394,7 @@ fn build_ui(application: &Application) {
     let progress: ProgressBar = bind_object!(b, "prg_task_progress");
     let cancel: Button = bind_object!(b, "btn_cancel");
     let log_buffer: TextBuffer = bind_object!(builder, "txt_log_buffer");
+    let scrl_log_output: ScrolledWindow = bind_object!(builder, "scrl_log_output");
     cancel.connect_clicked(move |_| {
         set_request_cancel!();
     });
@@ -427,11 +431,13 @@ fn build_ui(application: &Application) {
 
         while q.q.size() > 0 {
             let s = q.q.remove().expect("Failed to remove queue item");
-            let start = log_buffer.start_iter();
-            let end = log_buffer.end_iter();
-            let t = log_buffer.text(&start, &end, false).to_string();
-            let c = s + "\n"+ t.as_str();
-            log_buffer.set_text(&c);
+            let mut end = log_buffer.end_iter();
+            log_buffer.insert(&mut end, "\n");
+            log_buffer.insert(&mut end, &s);
+
+            // Scroll to bottom
+            let vadjustment = scrl_log_output.vadjustment();
+            vadjustment.set_value(vadjustment.upper());
         }
 
 
