@@ -13,7 +13,7 @@ use taskstatus::*;
 
 use anyhow::Result;
 use gtk::gdk::Display;
-use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
+use gtk::gdk_pixbuf::{Colorspace, Pixbuf, PixbufLoader};
 #[allow(deprecated)]
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
@@ -65,17 +65,29 @@ async fn main() -> Result<glib::ExitCode> {
         // The CSS "magic" happens here.
         let provider = CssProvider::new();
         provider.load_from_data(include_str!("../assets/styles.css"));
+
+        let display = Display::default().expect("Could not connect to a display.");
+
         // We give the CssProvided to the default screen so the CSS rules we added
         // can be applied to our window.
         gtk::style_context_add_provider_for_display(
-            &Display::default().expect("Could not connect to a display."),
+            &display,
             &provider,
             STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
 
+        let icon_theme = gtk::IconTheme::for_display(&display);
+        icon_theme.add_search_path("assets/");
+        // Note: The icon has been found, but still not being used by the window.
+        // The icon-name property has been set in the template.
+        if !icon_theme.has_icon("solhat") {
+            warn!("SolHat Icon Not Found!");
+        }
+
         // We build the application UI.
         // build_ui(app);
     });
+
     application.connect_activate(build_ui);
     let exitcode = application.run();
 
@@ -213,6 +225,9 @@ fn build_ui(application: &Application) {
         .object("SolHatApplicationMain")
         .expect("Couldn't get window");
     window.set_application(Some(application));
+    // window.set_icon_name(Some("solhat"));
+    // window.set_icon(Some(&loader.pixbuf().unwrap()));
+    // window.icon
 
     bind_open_clear!(
         builder,

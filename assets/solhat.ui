@@ -6,6 +6,7 @@
   <object class="GtkApplicationWindow" id="SolHatApplicationMain">
     <property name="default-width">1200</property>
     <property name="title">SolHat</property>
+    <property name="icon-name">solhat</property>
     <child>
       <object class="GtkBox" id="control_box">
         <property name="css-name">control_box</property>
