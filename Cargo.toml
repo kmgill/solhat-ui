@@ -51,4 +51,5 @@ assets = [
     { source = "assets/hicolor/48x48/apps/solhat.png", dest = "/usr/share/icons/hicolor/48x48/apps/solhat.png", mode ="644"},
     { source = "assets/hicolor/128x128/apps/solhat.png", dest = "/usr/share/icons/hicolor/128x128/apps/solhat.png", mode ="644"},
     { source = "assets/hicolor/256x256/apps/solhat.png", dest = "/usr/share/icons/hicolor/256x256/apps/solhat.png", mode ="644"},
+    { source = "assets/solhat.desktop", dest = "/usr/share/applications/solhat.desktop", mode ="644"},
 ]
