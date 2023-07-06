@@ -27,6 +27,7 @@ pub struct ParametersState {
     pub min_sigma: f64,
     pub max_sigma: f64,
     pub top_percentage: f64,
+    pub decorrelated_colors: bool,
 }
 
 impl Default for ParametersState {
@@ -49,6 +50,7 @@ impl Default for ParametersState {
             min_sigma: 0.0,
             max_sigma: 2000.0,
             top_percentage: 10.0,
+            decorrelated_colors: false,
         }
     }
 }
@@ -119,6 +121,7 @@ macro_rules! set_state_ui {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! clear_last_opened_folder {
     () => {
         set_state_ui!(last_opened_folder, None);

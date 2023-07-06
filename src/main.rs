@@ -13,13 +13,13 @@ use taskstatus::*;
 
 use anyhow::Result;
 use gtk::gdk::Display;
-use gtk::gdk_pixbuf::{Colorspace, Pixbuf, PixbufLoader};
+use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 #[allow(deprecated)]
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
     ScrolledWindow, SpinButton, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-use gtk::{glib, Application, ApplicationWindow, Builder, Button};
+use gtk::{glib, Application, ApplicationWindow, Builder, Button, CheckButton};
 use itertools::iproduct;
 use queues::IsQueue;
 use queues::{queue, Queue};
@@ -400,6 +400,15 @@ fn build_ui(application: &Application) {
             }
         });
     }));
+
+    ////////
+    // Decorrelated Colors
+    ////////
+    let chk_decorr_colors: CheckButton = bind_object!(builder, "chk_decorrelated_color");
+    chk_decorr_colors.connect_toggled(|e: &CheckButton| {
+        set_state_param!(decorrelated_colors, e.is_active());
+        info!("Decorrelated Colors: {}", e.is_active())
+    });
 
     ////////
     // Task Monitor
@@ -801,7 +810,13 @@ async fn run_async() -> Result<()> {
             stackmax,
             context.frame_records.len()
         );
-        stacked_buffer.normalize_to_16bit();
+
+        if get_state_param!(decorrelated_colors) {
+            stacked_buffer.normalize_to_16bit_decorrelated();
+        } else {
+            stacked_buffer.normalize_to_16bit();
+        }
+
         info!(
             "Final image size: {}, {}",
             stacked_buffer.width, stacked_buffer.height

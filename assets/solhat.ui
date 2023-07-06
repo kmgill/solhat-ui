@@ -498,19 +498,6 @@
               </object>
             </child>
             <child>
-              <object class="GtkLabel">
-                <property name="label">Observation</property>
-                <property name="margin-bottom">3</property>
-                <property name="margin-end">3</property>
-                <property name="margin-start">3</property>
-                <property name="margin-top">3</property>
-                <property name="xalign">0.0</property>
-                <style>
-                  <class name="section_header"/>
-                </style>
-              </object>
-            </child>
-            <child>
               <object class="GtkGrid">
                 <child>
                   <object class="GtkLabel">
@@ -638,70 +625,10 @@
                     </layout>
                   </object>
                 </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkSeparator">
-                <property name="margin-bottom">3</property>
-                <property name="margin-end">3</property>
-                <property name="margin-start">3</property>
-                <property name="margin-top">3</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkGrid">
                 <child>
                   <object class="GtkLabel">
                     <property name="hexpand">True</property>
                     <property name="label">Object Detection Threshold:</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="xalign">0.0</property>
-                    <layout>
-                      <property name="column">0</property>
-                      <property name="column-span">1</property>
-                      <property name="row">0</property>
-                      <property name="row-span">1</property>
-                    </layout>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="label">Drizzle:</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="xalign">0.0</property>
-                    <layout>
-                      <property name="column">0</property>
-                      <property name="column-span">1</property>
-                      <property name="row">1</property>
-                      <property name="row-span">1</property>
-                    </layout>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="label">Use Maximum Frames:</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="xalign">0.0</property>
-                    <layout>
-                      <property name="column">0</property>
-                      <property name="column-span">1</property>
-                      <property name="row">2</property>
-                      <property name="row-span">1</property>
-                    </layout>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="label">Minimum Sigma:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -717,7 +644,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Maximum Sigma:</property>
+                    <property name="label">Drizzle:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -733,7 +660,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Include Top Percentage:</property>
+                    <property name="label">Use Maximum Frames:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -749,7 +676,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Filename Free Text:</property>
+                    <property name="label">Minimum Sigma:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -763,6 +690,90 @@
                     </layout>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Maximum Sigma:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">7</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Include Top Percentage:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">8</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Filename Free Text:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">9</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+<!-- 
+                <child>
+                  <object class="GtkButton" id="btn_decorrelated_color">
+                    <property name="label">Decorrelated Color Bands:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="has-frame">false</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">10</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child> -->
+                 <child>
+                  <object class="GtkCheckButton" id="chk_decorrelated_color">
+                  <property name="label">Decorrelated Color Bands</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="has-tooltip">true</property>
+                    <property name="tooltip-text">Equalize color bands individually</property>
+                    <property name="halign">center</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">2</property>
+                      <property name="row">10</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+
                 <child>
                   <object class="GtkSpinButton" id="spn_obj_detection_threshold">
                     <property name="adjustment">
@@ -784,7 +795,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">0</property>
+                      <property name="row">3</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -806,7 +817,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">1</property>
+                      <property name="row">4</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -832,7 +843,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">2</property>
+                      <property name="row">5</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -857,7 +868,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">3</property>
+                      <property name="row">6</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -884,7 +895,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">4</property>
+                      <property name="row">7</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -911,7 +922,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">5</property>
+                      <property name="row">8</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -931,13 +942,24 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">6</property>
+                      <property name="row">9</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
                 </child>
+
+
+
+
               </object>
             </child>
+
+
+
+
+
+
+
             <child>
               <object class="GtkButton" id="btn_execute">
                 <property name="label">Start</property>
