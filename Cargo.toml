@@ -42,7 +42,22 @@ queues = "1.1.0"
 [build-dependencies]
 glib-build-tools = "0.17.10"
 
-
+[package.metadata.deb]
+maintainer = "Kevin M. Gill <apoapsys@gmail.com>"
+copyright = "2023, Kevin M. Gill <apoapsys@gmail.com>"
+license-file = ["LICENSE", "2"]
+extended-description = "Application for processing and stacking raw solar and lunar imagery" 
+depends = "$auto"
+section = "science"
+priority = "optional"
+assets = [
+    ["target/release/solhat-ui", "/usr/bin/solhat-ui", "755"],
+    ["README.md", "/usr/share/doc/solhat/README", "644"],
+    ["assets/hicolor/48x48/apps/solhat.png", "/usr/share/icons/hicolor/48x48/apps/solhat.png","644"],
+    ["assets/hicolor/128x128/apps/solhat.png", "/usr/share/icons/hicolor/128x128/apps/solhat.png", "644"],
+    ["assets/hicolor/256x256/apps/solhat.png", "/usr/share/icons/hicolor/256x256/apps/solhat.png", "644"],
+    ["assets/solhat.desktop", "/usr/share/applications/solhat.desktop", "644"]
+ ]
 
 [package.metadata.generate-rpm]
 assets = [

@@ -1,12 +1,13 @@
-FROM ubuntu:lunar
+FROM ubuntu:kinetic-20230624
 
 ARG SOLHATUI_VERSION=0.1.0
 ENV SOLHATUI_VERSION ${SOLHATUI_VERSION}
 
-RUN bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
-ENV PATH="/root/.cargo/bin:${PATH}"
+RUN apt-get update && apt-get install -y libgtk-4-dev curl
 
-RUN apt install libgtk-4-dev
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /build
 
