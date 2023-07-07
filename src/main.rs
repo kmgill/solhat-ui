@@ -1,6 +1,5 @@
 #[macro_use]
 mod state;
-use gtk::glib::Type;
 use state::*;
 
 #[macro_use]
@@ -14,15 +13,17 @@ use taskstatus::*;
 use anyhow::Result;
 use gtk::gdk::Display;
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
+use gtk::glib::{MainContext, Priority, Type};
 #[allow(deprecated)]
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
     ScrolledWindow, SpinButton, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-use gtk::{glib, Application, ApplicationWindow, Builder, Button, CheckButton};
+use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton};
 use itertools::iproduct;
 use queues::IsQueue;
 use queues::{queue, Queue};
+use sciimg::prelude::*;
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
 use solhat::context::{ProcessContext, ProcessParameters};
@@ -33,10 +34,12 @@ use solhat::rotation::frame_rotation_analysis;
 use solhat::ser::{SerFile, SerFrame};
 use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
+use solhat::threshtest::compute_rgb_threshtest_image;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
 use std::time::Duration;
 
 #[macro_use]
@@ -411,6 +414,59 @@ fn build_ui(application: &Application) {
     });
 
     ////////
+    // Threshold Test
+    ////////
+    let btn_thresh_test: Button = bind_object!(builder, "btn_thresh_test");
+    let (stat_sender, stat_receiver) = MainContext::channel(Priority::default());
+    let (pix_sender, pix_receiver) = MainContext::channel(Priority::default());
+    btn_thresh_test.connect_clicked(glib::clone!(@weak window, @weak b as builder => move |_| {
+        info!("Thresh test clicked");
+        let stat_sender = stat_sender.clone();
+        let pix_sender = pix_sender.clone();
+
+        thread::spawn(move || {
+            stat_sender.send(false).expect("Could not send through channel");
+            if let Ok(buffer) = run_thresh_test() {
+                pix_sender.send(Some(buffer)).expect("Failed to send pixbuf through channel");
+            } else {
+                pix_sender.send(None).expect("Failed to send pixbuf through channel");
+            }
+            stat_sender.send(true).expect("Could not send through channel");
+        });
+
+    }));
+    stat_receiver.attach(
+        None,
+        glib::clone!(@weak btn_thresh_test => @default-return Continue(false),
+                    move |enable_button| {
+                        btn_thresh_test.set_sensitive(enable_button);
+                        Continue(true)
+                    }
+        ),
+    );
+    pix_receiver.attach(
+        None,
+        glib::clone!(@weak window, @weak b as builder => @default-return Continue(false),
+                    move |buffer_opt| {
+                        if let Some(buffer) = buffer_opt {
+                            let pix = image_to_picture(&buffer).expect("Failed to convert imagebuffer to pixbuf");
+                            let pic: Picture = bind_object!(builder, "img_preview_light");
+                            pic.set_pixbuf(Some(&pix));
+                        } else {
+                            let info_dialog = AlertDialog::builder()
+                                                            .modal(true)
+                                                            .message("Error")
+                                                            .detail("No light input specified. Please do so before continuing")
+                                                            .build();
+
+                            info_dialog.show(Some(&window));
+                        }
+                        Continue(true)
+                    }
+        ),
+    );
+
+    ////////
     // Task Monitor
     ////////
     // let b = Rc::new(Cell::new(builder.clone()));
@@ -610,8 +666,11 @@ fn picture_from_ser_file(file_path: &str) -> Result<Pixbuf> {
 }
 
 fn ser_frame_to_picture(ser_frame: &SerFrame) -> Result<Pixbuf> {
-    let mut copied = ser_frame.buffer.clone();
+    image_to_picture(&ser_frame.buffer)
+}
 
+fn image_to_picture(image:&Image) -> Result<Pixbuf> {
+    let mut copied = image.clone();
     copied.normalize_to_8bit();
 
     let pix = Pixbuf::new(
@@ -642,6 +701,26 @@ fn ser_frame_to_picture(ser_frame: &SerFrame) -> Result<Pixbuf> {
     Ok(pix)
 }
 
+fn imagebuffer_to_picture(buffer: &ImageBuffer) -> Result<Pixbuf> {
+    let mut copied = buffer.clone();
+    copied.normalize_mut(0.0, 255.0);
+
+    let pix = Pixbuf::new(
+        Colorspace::Rgb,
+        false,
+        8,
+        copied.width as i32,
+        copied.height as i32,
+    )
+    .unwrap();
+
+    iproduct!(0..copied.height, 0..copied.width).for_each(|(y, x)| {
+        let v = copied.get(x, y);
+        pix.put_pixel(x as u32, y as u32, v as u8, v as u8, v as u8, 255);
+    });
+    Ok(pix)
+}
+
 macro_rules! p2s {
     ($pb:expr) => {
         if let Some(pb) = &$pb {
@@ -652,10 +731,13 @@ macro_rules! p2s {
     };
 }
 
-fn build_solhat_parameters() -> ProcessParameters {
+fn build_solhat_parameters() -> Result<ProcessParameters> {
     let state = STATE.lock().unwrap();
 
-    ProcessParameters {
+    if state.params.light.is_none() {
+        return Err(anyhow!("No light input identified"));
+    }
+    Ok(ProcessParameters {
         input_files: vec![p2s!(state.params.light).unwrap()],
         obj_detection_threshold: state.params.obj_detection_threshold,
         obs_latitude: state.params.obs_latitude,
@@ -674,7 +756,7 @@ fn build_solhat_parameters() -> ProcessParameters {
         darkflat_inputs: p2s!(state.params.darkflat),
         bias_inputs: p2s!(state.params.bias),
         hot_pixel_map: p2s!(state.params.hot_pixel_map),
-    }
+    })
 }
 
 macro_rules! check_cancel_status {
@@ -689,11 +771,8 @@ macro_rules! check_cancel_status {
     };
 }
 
-async fn run_async() -> Result<()> {
-    info!("Async task started");
-
-    let output_filename = assemble_output_filename()?;
-    let params = build_solhat_parameters();
+fn build_solhat_context() -> Result<ProcessContext> {
+    let params = build_solhat_parameters()?;
 
     set_task_status!("Processing Master Flat", 2, 1);
     let master_flat = if let Some(inputs) = &params.flat_inputs {
@@ -736,13 +815,23 @@ async fn run_async() -> Result<()> {
     check_cancel_status!();
 
     info!("Creating process context struct");
-    let mut context = ProcessContext::create_with_calibration_frames(
+    let context = ProcessContext::create_with_calibration_frames(
         &params,
         master_flat,
         master_darkflat,
         master_dark,
         master_bias,
     )?;
+
+    Ok(context)
+}
+
+async fn run_async() -> Result<()> {
+    info!("Async task started");
+
+    let output_filename = assemble_output_filename()?;
+    // let params = build_solhat_parameters();
+    let mut context = build_solhat_context()?;
 
     check_cancel_status!();
     set_task_status!(
@@ -833,4 +922,24 @@ async fn run_async() -> Result<()> {
     set_task_completed!();
 
     Ok(())
+}
+
+fn run_thresh_test() -> Result<Image> {
+    set_task_status!("Processing Threshold Test", 2, 1);
+    let context = ProcessContext::create_with_calibration_frames(
+        &build_solhat_parameters()?,
+        CalibrationImage::new_empty(),
+        CalibrationImage::new_empty(),
+        CalibrationImage::new_empty(),
+        CalibrationImage::new_empty(),
+    )?;
+
+    let first_frame = context.frame_records[0].get_frame(&context)?;
+    let result = compute_rgb_threshtest_image(
+        &first_frame.buffer,
+        context.parameters.obj_detection_threshold as f32,
+    );
+
+    set_task_completed!();
+    Ok(result)
 }

@@ -738,23 +738,6 @@
                     </layout>
                   </object>
                 </child>
-<!-- 
-                <child>
-                  <object class="GtkButton" id="btn_decorrelated_color">
-                    <property name="label">Decorrelated Color Bands:</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="has-frame">false</property>
-                    <layout>
-                      <property name="column">0</property>
-                      <property name="column-span">1</property>
-                      <property name="row">10</property>
-                      <property name="row-span">1</property>
-                    </layout>
-                  </object>
-                </child> -->
                  <child>
                   <object class="GtkCheckButton" id="chk_decorrelated_color">
                   <property name="label">Decorrelated Color Bands</property>
@@ -775,31 +758,63 @@
                 </child>
 
                 <child>
-                  <object class="GtkSpinButton" id="spn_obj_detection_threshold">
-                    <property name="adjustment">
-                      <object class="GtkAdjustment" id="adj_obj_detection_threshold">
-                        <property name="page-increment">1000.0</property>
-                        <property name="page-size">1000.0</property>
-                        <property name="step-increment">100.0</property>
-                        <property name="upper">65535.0</property>
+                  <object class="GtkBox">
+                    <child>
+                      <object class="GtkSpinButton" id="spn_obj_detection_threshold">
+                        <property name="adjustment">
+                          <object class="GtkAdjustment" id="adj_obj_detection_threshold">
+                            <property name="page-increment">1000.0</property>
+                            <property name="page-size">1000.0</property>
+                            <property name="step-increment">100.0</property>
+                            <property name="upper">65535.0</property>
+                            <property name="value">20000.0</property>
+                          </object>
+                        </property>
+                        <property name="climb-rate">100.0</property>
+                        <property name="margin-bottom">3</property>
+                        <property name="margin-end">3</property>
+                        <property name="margin-start">3</property>
+                        <property name="margin-top">3</property>
+                        <property name="numeric">True</property>
                         <property name="value">20000.0</property>
+                        <property name="hexpand">True</property>
+                        
                       </object>
-                    </property>
-                    <property name="climb-rate">100.0</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="numeric">True</property>
-                    <property name="value">20000.0</property>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="btn_thresh_test">
+                        <property name="icon-name">weather-clear</property>
+                        <property name="has-tooltip">true</property>
+                        <property name="tooltip-text">Threshold test</property>
+                        <property name="margin-bottom">3</property>
+                        <property name="margin-end">3</property>
+                        <property name="margin-start">3</property>
+                        <property name="margin-top">3</property>
+                      </object>
+                    </child>
+
+
+
                     <layout>
-                      <property name="column">1</property>
-                      <property name="column-span">1</property>
-                      <property name="row">3</property>
-                      <property name="row-span">1</property>
-                    </layout>
+                        <property name="column">1</property>
+                        <property name="column-span">1</property>
+                        <property name="row">3</property>
+                        <property name="row-span">1</property>
+                      </layout>
+                  
+                  
+                  
                   </object>
+
+
+
+
+
+
                 </child>
+
+
+
                 <child>
                   <object class="GtkComboBoxText" id="combo_drizzle">
                     <property name="active">0</property>
