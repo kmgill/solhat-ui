@@ -1,0 +1,22 @@
+FROM ubuntu:lunar
+
+ARG SOLHATUI_VERSION=0.1.0
+ENV SOLHATUI_VERSION ${SOLHATUI_VERSION}
+
+RUN bash -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN apt install libgtk-4-dev
+
+WORKDIR /build
+
+RUN cargo install cargo-deb
+COPY . .
+
+RUN cargo deb 
+
+RUN ls -l target/debian/
+
+# Validate installation package
+RUN apt install ./target/debian/solhat-ui_${SOLHATUI_VERSION}_amd64.deb 
+
