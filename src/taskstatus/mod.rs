@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use gtk::glib::Sender;
 
 pub enum TaskStatus {
     TaskPercentage(String, usize, usize),
@@ -9,33 +9,25 @@ pub struct TaskStatusContainer {
     pub status: Option<TaskStatus>,
 }
 
-lazy_static! {
-    pub static ref TASK_STATUS_QUEUE: Arc<Mutex<TaskStatusContainer>> =
-        Arc::new(Mutex::new(TaskStatusContainer::default()));
+pub fn set_task_status(
+    sender: &Sender<TaskStatusContainer>,
+    task_name: &str,
+    num_parts: usize,
+    progress: usize,
+) {
+    sender
+        .send(TaskStatusContainer {
+            status: Some(TaskStatus::TaskPercentage(
+                task_name.to_owned(),
+                num_parts,
+                progress,
+            )),
+        })
+        .expect("Failed to sent task status");
 }
 
-macro_rules! increment_status {
-    () => {
-        let mut stat = TASK_STATUS_QUEUE.lock().unwrap();
-        match &mut stat.status {
-            Some(TaskStatus::TaskPercentage(name, len, val)) => {
-                info!("Updating task status with value {}", val);
-                stat.status = Some(TaskStatus::TaskPercentage(name.to_owned(), *len, *val + 1))
-            }
-            None => {}
-        }
-    };
-}
-
-macro_rules! set_task_status {
-    ($name:expr, $len:expr, $cnt:expr) => {
-        taskstatus::TASK_STATUS_QUEUE.lock().unwrap().status =
-            Some(TaskStatus::TaskPercentage($name.to_owned(), $len, $cnt));
-    };
-}
-
-macro_rules! set_task_completed {
-    () => {
-        taskstatus::TASK_STATUS_QUEUE.lock().unwrap().status = None
-    };
+pub fn set_task_completed(sender: &Sender<TaskStatusContainer>) {
+    sender
+        .send(TaskStatusContainer { status: None })
+        .expect("Failed to sent task status");
 }

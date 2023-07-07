@@ -2,18 +2,16 @@
 mod state;
 use state::*;
 
-#[macro_use]
 mod cancel;
 use cancel::*;
 
-#[macro_use]
 mod taskstatus;
 use taskstatus::*;
 
 use anyhow::Result;
 use gtk::gdk::Display;
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
-use gtk::glib::{MainContext, Priority, Type};
+use gtk::glib::{MainContext, Priority, Sender, Type};
 #[allow(deprecated)]
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
@@ -21,8 +19,6 @@ use gtk::{
 };
 use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton};
 use itertools::iproduct;
-use queues::IsQueue;
-use queues::{queue, Queue};
 use sciimg::prelude::*;
 use solhat::anaysis::frame_sigma_analysis;
 use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
@@ -37,25 +33,14 @@ use solhat::target::Target;
 use solhat::threshtest::compute_rgb_threshtest_image;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 #[macro_use]
 extern crate stump;
 
 #[macro_use]
 extern crate lazy_static;
-
-#[derive(Debug)]
-pub struct LogQueue {
-    q: Queue<String>,
-}
-
-lazy_static! {
-    static ref LOG_QUEUE: Arc<Mutex<LogQueue>> = Arc::new(Mutex::new(LogQueue { q: queue![] }));
-}
 
 #[tokio::main]
 async fn main() -> Result<glib::ExitCode> {
@@ -64,33 +49,7 @@ async fn main() -> Result<glib::ExitCode> {
 
     let application = gtk::Application::new(Some("com.apoapsys.solhat"), Default::default());
 
-    application.connect_startup(|_| {
-        // The CSS "magic" happens here.
-        let provider = CssProvider::new();
-        provider.load_from_data(include_str!("../assets/styles.css"));
-
-        let display = Display::default().expect("Could not connect to a display.");
-
-        // We give the CssProvided to the default screen so the CSS rules we added
-        // can be applied to our window.
-        gtk::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
-
-        let icon_theme = gtk::IconTheme::for_display(&display);
-        icon_theme.add_search_path("assets/");
-        // Note: The icon has been found, but still not being used by the window.
-        // The icon-name property has been set in the template.
-        if !icon_theme.has_icon("solhat") {
-            warn!("SolHat Icon Not Found!");
-        }
-
-        // We build the application UI.
-        // build_ui(app);
-    });
-
+    application.connect_activate(build_styles);
     application.connect_activate(build_ui);
     let exitcode = application.run();
 
@@ -213,6 +172,29 @@ macro_rules! update_execute_state {
     };
 }
 
+fn build_styles(_application: &Application) {
+    let provider = CssProvider::new();
+    provider.load_from_data(include_str!("../assets/styles.css"));
+
+    let display = Display::default().expect("Could not connect to a display.");
+
+    // We give the CssProvided to the default screen so the CSS rules we added
+    // can be applied to our window.
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+
+    let icon_theme = gtk::IconTheme::for_display(&display);
+    icon_theme.add_search_path("assets/");
+    // Note: The icon has been found, but still not being used by the window.
+    // The icon-name property has been set in the template.
+    if !icon_theme.has_icon("solhat") {
+        warn!("SolHat Icon Not Found!");
+    }
+}
+
 #[allow(deprecated)]
 fn build_ui(application: &Application) {
     let ui_src = include_str!("../assets/solhat.ui");
@@ -224,13 +206,12 @@ fn build_ui(application: &Application) {
         warn!("No saved state file found. One will be created on exit");
     }
 
+    let (process_sender, process_receiver) = MainContext::channel(Priority::default());
+
     let window: ApplicationWindow = builder
         .object("SolHatApplicationMain")
         .expect("Couldn't get window");
     window.set_application(Some(application));
-    // window.set_icon_name(Some("solhat"));
-    // window.set_icon(Some(&loader.pixbuf().unwrap()));
-    // window.icon
 
     bind_open_clear!(
         builder,
@@ -391,19 +372,6 @@ fn build_ui(application: &Application) {
     bind_spinner!(builder, "spn_max_sigma", max_sigma, f64);
     bind_spinner!(builder, "spn_top_percentage", top_percentage, f64);
 
-    update_execute_state!(builder);
-    // set_execute_enabled!(builder, false);
-    let start: Button = bind_object!(builder, "btn_execute");
-    let b = builder.clone();
-    start.connect_clicked(glib::clone!(@weak window, @weak b as builder => move |_| {
-        debug!("Start has been clicked");
-        tokio::spawn(async move {
-            {
-                run_async().await.unwrap(); //.await.unwrap();
-            }
-        });
-    }));
-
     ////////
     // Decorrelated Colors
     ////////
@@ -419,14 +387,16 @@ fn build_ui(application: &Application) {
     let btn_thresh_test: Button = bind_object!(builder, "btn_thresh_test");
     let (stat_sender, stat_receiver) = MainContext::channel(Priority::default());
     let (pix_sender, pix_receiver) = MainContext::channel(Priority::default());
+    let ps = process_sender.clone();
     btn_thresh_test.connect_clicked(glib::clone!(@weak window, @weak b as builder => move |_| {
         info!("Thresh test clicked");
         let stat_sender = stat_sender.clone();
         let pix_sender = pix_sender.clone();
+        let ps =  ps.clone();
 
         thread::spawn(move || {
             stat_sender.send(false).expect("Could not send through channel");
-            if let Ok(buffer) = run_thresh_test() {
+            if let Ok(buffer) = run_thresh_test(ps) {
                 pix_sender.send(Some(buffer)).expect("Failed to send pixbuf through channel");
             } else {
                 pix_sender.send(None).expect("Failed to send pixbuf through channel");
@@ -473,72 +443,95 @@ fn build_ui(application: &Application) {
     let label: Label = bind_object!(b, "lbl_task_status");
     let progress: ProgressBar = bind_object!(b, "prg_task_progress");
     let cancel: Button = bind_object!(b, "btn_cancel");
-    let log_buffer: TextBuffer = bind_object!(builder, "txt_log_buffer");
-    let scrl_log_output: ScrolledWindow = bind_object!(builder, "scrl_log_output");
+
     cancel.connect_clicked(move |_| {
-        set_request_cancel!();
+        set_request_cancel();
     });
-    let update_state_callback = glib::clone!(@weak label, @weak start => @default-return Continue(true), move || {
-        let proc_status = taskstatus::TASK_STATUS_QUEUE.lock().unwrap();
-        match &proc_status.status {
-            Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
-                let pct = if *len > 0 {
-                    *cnt as f64 / *len as f64
-                } else {
-                    0.0
-                };
-                label.set_visible(true);
-                progress.set_visible(true);
-                cancel.set_visible(true);
-                label.set_label(&task_name);
-                progress.set_fraction(pct);
-                start.set_sensitive(false);
-                cancel.set_sensitive(true);
-            },
-            None => {
-                label.set_visible(false);
-                progress.set_visible(false);
-                cancel.set_visible(false);
-                start.set_sensitive(true);
-                cancel.set_sensitive(false);
+
+    ////////
+    // Process Execution
+    ////////
+
+    update_execute_state!(builder);
+    let start: Button = bind_object!(builder, "btn_execute");
+    let ps = process_sender.clone();
+    start.connect_clicked(move |_| {
+        debug!("Start has been clicked");
+        let ps = ps.clone();
+        tokio::spawn(async move {
+            {
+                ps.send(TaskStatusContainer {
+                    status: Some(TaskStatus::TaskPercentage("Starting".to_owned(), 0, 0)),
+                })
+                .expect("Failed to sent task status");
+                run_async(ps).await.unwrap(); //.await.unwrap();
             }
-        };
-        // let spn: Spinner = bind_object!(b, "prg_task_progress");
-
-        let mut q = LOG_QUEUE
-            .lock()
-            .unwrap();
-
-        while q.q.size() > 0 {
-            let s = q.q.remove().expect("Failed to remove queue item");
-            let mut end = log_buffer.end_iter();
-            log_buffer.insert(&mut end, "\n");
-            log_buffer.insert(&mut end, &s);
-
-            // Scroll to bottom
-            let vadjustment = scrl_log_output.vadjustment();
-            vadjustment.set_value(vadjustment.upper());
-        }
-
-
-        Continue(true)
+        });
     });
+    process_receiver.attach(
+        None,
+        glib::clone!(@weak label, @weak start => @default-return Continue(false),
+            move |proc_status| {
+                match &proc_status.status {
+                    Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
+                        let pct = if *len > 0 {
+                            *cnt as f64 / *len as f64
+                        } else {
+                            0.0
+                        };
+                        label.set_visible(true);
+                        progress.set_visible(true);
+                        cancel.set_visible(true);
+                        label.set_label(&task_name);
+                        progress.set_fraction(pct);
+                        start.set_sensitive(false);
+                        cancel.set_sensitive(true);
+                    },
+                    None => {
+                        label.set_visible(false);
+                        progress.set_visible(false);
+                        cancel.set_visible(false);
+                        start.set_sensitive(true);
+                        cancel.set_sensitive(false);
+                    }
+                };
 
-    let _ = glib::timeout_add_local(Duration::from_millis(250), update_state_callback);
+
+                Continue(true)
+            }
+        ),
+    );
 
     ////////
     // Logging
     ////////
     //
-    stump::set_print(|s| {
-        LOG_QUEUE
-            .lock()
-            .unwrap()
-            .q
-            .add(s.to_owned())
-            .expect("Queue add failed");
+    let log_buffer: TextBuffer = bind_object!(builder, "txt_log_buffer");
+    let scrl_log_output: ScrolledWindow = bind_object!(builder, "scrl_log_output");
+    let (log_sender, log_receiver) = MainContext::channel(Priority::default());
+
+    stump::set_print(move |s| {
         println!("{}", s);
+        log_sender.send(s.to_owned()).expect("Failed to send log");
     });
+
+    log_receiver.attach(
+        None,
+        glib::clone!(@weak log_buffer, @weak scrl_log_output => @default-return Continue(false),
+            move |log_entry| {
+
+                let mut end = log_buffer.end_iter();
+                log_buffer.insert(&mut end, "\n");
+                log_buffer.insert(&mut end, &log_entry);
+
+                // Scroll to bottom
+                let vadjustment = scrl_log_output.vadjustment();
+                vadjustment.set_value(vadjustment.upper());
+
+                Continue(true)
+            }
+        ),
+    );
 
     update_output_filename!(builder);
 
@@ -669,7 +662,7 @@ fn ser_frame_to_picture(ser_frame: &SerFrame) -> Result<Pixbuf> {
     image_to_picture(&ser_frame.buffer)
 }
 
-fn image_to_picture(image:&Image) -> Result<Pixbuf> {
+fn image_to_picture(image: &Image) -> Result<Pixbuf> {
     let mut copied = image.clone();
     copied.normalize_to_8bit();
 
@@ -701,6 +694,7 @@ fn image_to_picture(image:&Image) -> Result<Pixbuf> {
     Ok(pix)
 }
 
+#[allow(dead_code)]
 fn imagebuffer_to_picture(buffer: &ImageBuffer) -> Result<Pixbuf> {
     let mut copied = buffer.clone();
     copied.normalize_mut(0.0, 255.0);
@@ -759,22 +753,10 @@ fn build_solhat_parameters() -> Result<ProcessParameters> {
     })
 }
 
-macro_rules! check_cancel_status {
-    () => {
-        if is_cancel_requested!() {
-            set_task_cancelled!();
-            set_task_completed!();
-            reset_cancel_status!();
-            warn!("Task cancellation request detected. Stopping progress");
-            panic!("Cancelling!");
-        }
-    };
-}
-
-fn build_solhat_context() -> Result<ProcessContext> {
+fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessContext> {
     let params = build_solhat_parameters()?;
 
-    set_task_status!("Processing Master Flat", 2, 1);
+    set_task_status(&sender, "Processing Master Flat", 2, 1);
     let master_flat = if let Some(inputs) = &params.flat_inputs {
         info!("Processing master flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -782,9 +764,9 @@ fn build_solhat_context() -> Result<ProcessContext> {
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status!();
+    check_cancel_status(&sender);
 
-    set_task_status!("Processing Master Dark Flat", 2, 1);
+    set_task_status(&sender, "Processing Master Dark Flat", 2, 1);
     let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
         info!("Processing master dark flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -792,9 +774,9 @@ fn build_solhat_context() -> Result<ProcessContext> {
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status!();
+    check_cancel_status(&sender);
 
-    set_task_status!("Processing Master Dark", 2, 1);
+    set_task_status(&sender, "Processing Master Dark", 2, 1);
     let master_dark = if let Some(inputs) = &params.dark_inputs {
         info!("Processing master dark...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -802,9 +784,9 @@ fn build_solhat_context() -> Result<ProcessContext> {
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status!();
+    check_cancel_status(&sender);
 
-    set_task_status!("Processing Master Bias", 2, 1);
+    set_task_status(&sender, "Processing Master Bias", 2, 1);
     let master_bias = if let Some(inputs) = &params.bias_inputs {
         info!("Processing master bias...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -812,7 +794,7 @@ fn build_solhat_context() -> Result<ProcessContext> {
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status!();
+    check_cancel_status(&sender);
 
     info!("Creating process context struct");
     let context = ProcessContext::create_with_calibration_frames(
@@ -826,69 +808,129 @@ fn build_solhat_context() -> Result<ProcessContext> {
     Ok(context)
 }
 
-async fn run_async() -> Result<()> {
+pub fn check_cancel_status(sender: &Sender<TaskStatusContainer>) {
+    if is_cancel_requested() {
+        set_task_cancelled();
+        set_task_completed(sender);
+        reset_cancel_status();
+        warn!("Task cancellation request detected. Stopping progress");
+        panic!("Cancelling!");
+    }
+}
+
+lazy_static! {
+    // NOTE: Concurrent processing threads will stomp on each other, but at least
+    // they'll do it in proper turn.  Also, this is stupid and can't stay this way.
+    static ref COUNTER: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
+}
+
+async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
     info!("Async task started");
 
     let output_filename = assemble_output_filename()?;
     // let params = build_solhat_parameters();
-    let mut context = build_solhat_context()?;
+    let mut context = build_solhat_context(&master_sender)?;
 
-    check_cancel_status!();
-    set_task_status!(
-        "Computing Center-of-Mass Offsets",
-        context.frame_records.len(),
-        0
-    );
-    context.frame_records = frame_offset_analysis(&context, |_fr| {
-        increment_status!();
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
+    check_cancel_status(&master_sender);
+    let frame_count = context.frame_records.len();
+    let sender = master_sender.clone();
+    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
+    context.frame_records = frame_offset_analysis(&context, move |_fr| {
         info!("frame_offset_analysis(): Frame processed.");
-        check_cancel_status!();
+        check_cancel_status(&sender);
+
+        let mut c = COUNTER.lock().unwrap();
+        *c = *c + 1;
+        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
     })?;
 
-    set_task_status!("Frame Sigma Analysis", context.frame_records.len(), 0);
-    context.frame_records = frame_sigma_analysis(&context, |fr| {
-        increment_status!();
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+    check_cancel_status(&master_sender);
+    let frame_count = context.frame_records.len();
+    let sender = master_sender.clone();
+    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
+    context.frame_records = frame_sigma_analysis(&context, move |fr| {
         info!(
             "frame_sigma_analysis(): Frame processed with sigma {}",
             fr.sigma
         );
-        check_cancel_status!();
+        check_cancel_status(&sender);
+
+        let mut c = COUNTER.lock().unwrap();
+        *c = *c + 1;
+        set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
     })?;
 
-    check_cancel_status!();
-    set_task_status!("Applying Frame Limits", context.frame_records.len(), 0);
-    context.frame_records = frame_limit_determinate(&context, |_fr| {
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
+    let frame_count = context.frame_records.len();
+    let sender = master_sender.clone();
+    check_cancel_status(&master_sender);
+    set_task_status(&sender, "Applying Frame Limits", frame_count, 0);
+    context.frame_records = frame_limit_determinate(&context, move |_fr| {
         info!("frame_limit_determinate(): Frame processed.");
-        check_cancel_status!();
+        check_cancel_status(&sender);
+
+        let mut c = COUNTER.lock().unwrap();
+        *c = *c + 1;
+        set_task_status(&sender, "Applying Frame Limits", frame_count, *c)
     })?;
 
-    check_cancel_status!();
-    set_task_status!(
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
+    let frame_count = context.frame_records.len();
+    let sender = master_sender.clone();
+    check_cancel_status(&master_sender);
+    set_task_status(
+        &sender,
         "Computing Parallactic Angle Rotations",
-        context.frame_records.len(),
-        0
+        frame_count,
+        0,
     );
-    context.frame_records = frame_rotation_analysis(&context, |fr| {
-        increment_status!();
+    context.frame_records = frame_rotation_analysis(&context, move |fr| {
         info!(
             "Rotation for frame is {} degrees",
             fr.computed_rotation.to_degrees()
         );
-        check_cancel_status!();
+        check_cancel_status(&sender);
+
+        let mut c = COUNTER.lock().unwrap();
+        *c = *c + 1;
+        set_task_status(
+            &sender,
+            "Computing Parallactic Angle Rotations",
+            frame_count,
+            *c,
+        )
     })?;
+
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
 
     if context.frame_records.is_empty() {
         println!("Zero frames to stack. Cannot continue");
     } else {
-        check_cancel_status!();
-        set_task_status!("Stacking", context.frame_records.len(), 0);
-        let drizzle_output = process_frame_stacking(&context, |_fr| {
+        let frame_count = context.frame_records.len();
+        let sender = master_sender.clone();
+        check_cancel_status(&master_sender);
+        set_task_status(&sender, "Stacking", frame_count, 0);
+        let drizzle_output = process_frame_stacking(&context, move |_fr| {
             info!("process_frame_stacking(): Frame processed.");
-            increment_status!();
+            check_cancel_status(&sender);
+
+            let mut c = COUNTER.lock().unwrap();
+            *c = *c + 1;
+            set_task_status(&sender, "Stacking", frame_count, *c)
         })?;
 
-        check_cancel_status!();
-        set_task_status!("Finalizing", 2, 1);
+        check_cancel_status(&master_sender);
+        set_task_status(&master_sender, "Finalizing", 2, 1);
         let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
 
         // Let the user know some stuff...
@@ -912,20 +954,20 @@ async fn run_async() -> Result<()> {
         );
 
         // Save finalized image to disk
-        set_task_status!("Saving", 2, 1);
+        set_task_status(&master_sender, "Saving", 2, 1);
         stacked_buffer.save(output_filename.to_string_lossy().as_ref())?;
 
         // The user will likely never see this actually appear on screen
-        set_task_status!("Done", 1, 1);
+        set_task_status(&master_sender, "Done", 1, 1);
     }
 
-    set_task_completed!();
+    set_task_completed(&master_sender);
 
     Ok(())
 }
 
-fn run_thresh_test() -> Result<Image> {
-    set_task_status!("Processing Threshold Test", 2, 1);
+fn run_thresh_test(master_sender: Sender<TaskStatusContainer>) -> Result<Image> {
+    set_task_status(&master_sender, "Processing Threshold Test", 2, 1);
     let context = ProcessContext::create_with_calibration_frames(
         &build_solhat_parameters()?,
         CalibrationImage::new_empty(),
@@ -940,6 +982,6 @@ fn run_thresh_test() -> Result<Image> {
         context.parameters.obj_detection_threshold as f32,
     );
 
-    set_task_completed!();
+    set_task_completed(&master_sender);
     Ok(result)
 }

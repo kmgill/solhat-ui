@@ -18,26 +18,18 @@ lazy_static! {
         }));
 }
 
-macro_rules! set_request_cancel {
-    () => {
-        cancel::CANCEL_TASK.lock().unwrap().status = CancelStatus::CancelRequested;
-    };
+pub fn set_request_cancel() {
+    CANCEL_TASK.lock().unwrap().status = CancelStatus::CancelRequested;
 }
 
-macro_rules! set_task_cancelled {
-    () => {
-        cancel::CANCEL_TASK.lock().unwrap().status = CancelStatus::Cancelled;
-    };
+pub fn set_task_cancelled() {
+    CANCEL_TASK.lock().unwrap().status = CancelStatus::Cancelled;
 }
 
-macro_rules! reset_cancel_status {
-    () => {
-        cancel::CANCEL_TASK.lock().unwrap().status = CancelStatus::NoStatus;
-    };
+pub fn reset_cancel_status() {
+    CANCEL_TASK.lock().unwrap().status = CancelStatus::NoStatus;
 }
 
-macro_rules! is_cancel_requested {
-    () => {
-        cancel::CANCEL_TASK.lock().unwrap().status == CancelStatus::CancelRequested
-    };
+pub fn is_cancel_requested() -> bool {
+    CANCEL_TASK.lock().unwrap().status == CancelStatus::CancelRequested
 }
