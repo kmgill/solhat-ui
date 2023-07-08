@@ -485,7 +485,6 @@ fn build_ui(application: &Application) {
                         progress.set_visible(true);
                         cancel.set_visible(true);
                         label.set_label(&task_name);
-                        
                         start.set_sensitive(false);
                         cancel.set_sensitive(true);
                         btn_thresh_test.set_sensitive(false);
