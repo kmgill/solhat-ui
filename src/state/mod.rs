@@ -160,7 +160,7 @@ macro_rules! clear_last_opened_folder {
 
 macro_rules! set_last_opened_folder {
     ($dir:expr) => {
-        set_state_ui!(last_opened_folder, Some($dir));
+        set_state_ui!(last_opened_folder, Some($dir.clone()));
         info!("Setting last opened folder to {:?}", $dir);
     };
 }

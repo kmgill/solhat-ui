@@ -300,7 +300,7 @@ fn build_ui(application: &Application) {
                 lbl_output_folder.set_label(f.to_str().unwrap());
                 set_state_param!(output_dir, Some(f.to_owned()));
                 update_output_filename!(builder);
-                set_last_opened_folder!(f.to_owned());
+                set_last_opened_folder!(f);
             }));
         }),
     );
@@ -308,6 +308,7 @@ fn build_ui(application: &Application) {
     ////////
     // Free text
     ////////
+    #[allow(clippy::redundant_clone)]
     let b = builder.clone();
     let txt_freetext: Entry = bind_object!(builder, "txt_freetext");
     txt_freetext.set_text(&get_state_param!(freetext));
@@ -456,6 +457,7 @@ fn build_ui(application: &Application) {
 
     update_execute_state!(builder);
     let start: Button = bind_object!(builder, "btn_execute");
+    #[allow(clippy::redundant_clone)]
     let ps = process_sender.clone();
     start.connect_clicked(move |_| {
         debug!("Start has been clicked");
@@ -484,7 +486,7 @@ fn build_ui(application: &Application) {
                         // label.set_visible(true);
                         progress.set_visible(true);
                         cancel.set_visible(true);
-                        label.set_label(&task_name);
+                        label.set_label(task_name);
                         start.set_sensitive(false);
                         cancel.set_sensitive(true);
                         btn_thresh_test.set_sensitive(false);
@@ -761,7 +763,7 @@ fn build_solhat_parameters() -> Result<ProcessParameters> {
 fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessContext> {
     let params = build_solhat_parameters()?;
 
-    set_task_status(&sender, "Processing Master Flat", 0, 0);
+    set_task_status(sender, "Processing Master Flat", 0, 0);
     let master_flat = if let Some(inputs) = &params.flat_inputs {
         info!("Processing master flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -769,9 +771,9 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status(&sender);
+    check_cancel_status(sender);
 
-    set_task_status(&sender, "Processing Master Dark Flat", 0, 0);
+    set_task_status(sender, "Processing Master Dark Flat", 0, 0);
     let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
         info!("Processing master dark flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -779,9 +781,9 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status(&sender);
+    check_cancel_status(sender);
 
-    set_task_status(&sender, "Processing Master Dark", 0, 0);
+    set_task_status(sender, "Processing Master Dark", 0, 0);
     let master_dark = if let Some(inputs) = &params.dark_inputs {
         info!("Processing master dark...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -789,9 +791,9 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status(&sender);
+    check_cancel_status(sender);
 
-    set_task_status(&sender, "Processing Master Bias", 0, 0);
+    set_task_status(sender, "Processing Master Bias", 0, 0);
     let master_bias = if let Some(inputs) = &params.bias_inputs {
         info!("Processing master bias...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -799,7 +801,7 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
         CalibrationImage::new_empty()
     };
 
-    check_cancel_status(&sender);
+    check_cancel_status(sender);
 
     info!("Creating process context struct");
     let context = ProcessContext::create_with_calibration_frames(
@@ -848,7 +850,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
         check_cancel_status(&sender);
 
         let mut c = COUNTER.lock().unwrap();
-        *c = *c + 1;
+        *c += 1;
         set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
     })?;
 
@@ -870,7 +872,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
             check_cancel_status(&sender);
 
             let mut c = COUNTER.lock().unwrap();
-            *c = *c + 1;
+            *c += 1;
             set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
         },
     )?;
@@ -888,7 +890,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
         check_cancel_status(&sender);
 
         let mut c = COUNTER.lock().unwrap();
-        *c = *c + 1;
+        *c += 1;
         set_task_status(&sender, "Applying Frame Limits", frame_count, *c)
     })?;
 
@@ -913,7 +915,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
         check_cancel_status(&sender);
 
         let mut c = COUNTER.lock().unwrap();
-        *c = *c + 1;
+        *c += 1;
         set_task_status(
             &sender,
             "Computing Parallactic Angle Rotations",
@@ -938,7 +940,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
             check_cancel_status(&sender);
 
             let mut c = COUNTER.lock().unwrap();
-            *c = *c + 1;
+            *c += 1;
             set_task_status(&sender, "Stacking", frame_count, *c)
         })?;
 
