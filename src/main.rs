@@ -200,7 +200,8 @@ fn build_ui(application: &Application) {
     let ui_src = include_str!("../assets/solhat.ui");
     let builder = Builder::from_string(ui_src);
 
-    if let Ok(ss) = ApplicationState::load_from_userhome() {
+    if let Ok(mut ss) = ApplicationState::load_from_userhome() {
+        ss.validate_paths();
         *STATE.lock().unwrap() = ss;
     } else {
         warn!("No saved state file found. One will be created on exit");

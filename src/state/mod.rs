@@ -95,6 +95,34 @@ impl ApplicationState {
         debug!("{}", toml_str);
         Ok(())
     }
+
+    fn is_path_valid(p: &Option<PathBuf>) -> bool {
+        if let Some(path) = p {
+            path.exists()
+        } else {
+            false //  Path is None, and none is invalid.
+        }
+    }
+
+    fn validate_path(p: &Option<PathBuf>) -> Option<PathBuf> {
+        if ApplicationState::is_path_valid(p) {
+            p.to_owned()
+        } else {
+            None
+        }
+    }
+
+    /// Checks each path option and if the path no longer exists on the filesystem,
+    /// replace it with None
+    pub fn validate_paths(&mut self) {
+        self.params.light = ApplicationState::validate_path(&self.params.light);
+        self.params.dark = ApplicationState::validate_path(&self.params.dark);
+        self.params.flat = ApplicationState::validate_path(&self.params.flat);
+        self.params.darkflat = ApplicationState::validate_path(&self.params.darkflat);
+        self.params.bias = ApplicationState::validate_path(&self.params.bias);
+        self.params.hot_pixel_map = ApplicationState::validate_path(&self.params.hot_pixel_map);
+        self.params.output_dir = ApplicationState::validate_path(&self.params.output_dir);
+    }
 }
 
 lazy_static! {
