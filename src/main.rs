@@ -470,7 +470,7 @@ fn build_ui(application: &Application) {
     });
     process_receiver.attach(
         None,
-        glib::clone!(@weak label, @weak start => @default-return Continue(false),
+        glib::clone!(@weak label, @weak start, @weak btn_thresh_test => @default-return Continue(false),
             move |proc_status| {
                 match &proc_status.status {
                     Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
@@ -479,20 +479,23 @@ fn build_ui(application: &Application) {
                         } else {
                             0.0
                         };
-                        label.set_visible(true);
+                        // label.set_visible(true);
                         progress.set_visible(true);
                         cancel.set_visible(true);
                         label.set_label(&task_name);
                         progress.set_fraction(pct);
                         start.set_sensitive(false);
                         cancel.set_sensitive(true);
+                        btn_thresh_test.set_sensitive(false);
                     },
                     None => {
-                        label.set_visible(false);
+                        // label.set_visible(false);
                         progress.set_visible(false);
                         cancel.set_visible(false);
                         start.set_sensitive(true);
                         cancel.set_sensitive(false);
+                        btn_thresh_test.set_sensitive(true);
+                        label.set_label("Ready");
                     }
                 };
 
@@ -851,6 +854,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
     /////////////////////////////////////////////////////////////
     check_cancel_status(&master_sender);
     let frame_count = context.frame_records.len();
+    *COUNTER.lock().unwrap() = 0;
     let sender = master_sender.clone();
     set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
     context.frame_records = frame_sigma_analysis(&context, move |fr| {
@@ -869,6 +873,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
     /////////////////////////////////////////////////////////////
 
     let frame_count = context.frame_records.len();
+    *COUNTER.lock().unwrap() = 0;
     let sender = master_sender.clone();
     check_cancel_status(&master_sender);
     set_task_status(&sender, "Applying Frame Limits", frame_count, 0);
@@ -885,6 +890,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
     /////////////////////////////////////////////////////////////
 
     let frame_count = context.frame_records.len();
+    *COUNTER.lock().unwrap() = 0;
     let sender = master_sender.clone();
     check_cancel_status(&master_sender);
     set_task_status(
@@ -917,6 +923,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
         println!("Zero frames to stack. Cannot continue");
     } else {
         let frame_count = context.frame_records.len();
+        *COUNTER.lock().unwrap() = 0;
         let sender = master_sender.clone();
         check_cancel_status(&master_sender);
         set_task_status(&sender, "Stacking", frame_count, 0);
