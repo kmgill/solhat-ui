@@ -20,7 +20,7 @@ use gtk::{
 use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton};
 use itertools::iproduct;
 use sciimg::prelude::*;
-use solhat::anaysis::frame_sigma_analysis;
+use solhat::anaysis::frame_sigma_analysis_window_size;
 use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
 use solhat::context::{ProcessContext, ProcessParameters};
 use solhat::drizzle::Scale;
@@ -372,6 +372,7 @@ fn build_ui(application: &Application) {
     bind_spinner!(builder, "spn_min_sigma", min_sigma, f64);
     bind_spinner!(builder, "spn_max_sigma", max_sigma, f64);
     bind_spinner!(builder, "spn_top_percentage", top_percentage, f64);
+    bind_spinner!(builder, "spn_window_size", analysis_window_size, usize);
 
     ////////
     // Decorrelated Colors
@@ -475,16 +476,16 @@ fn build_ui(application: &Application) {
             move |proc_status| {
                 match &proc_status.status {
                     Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
-                        let pct = if *len > 0 {
-                            *cnt as f64 / *len as f64
+                        if *len > 0 {
+                            progress.set_fraction(*cnt as f64 / *len as f64);
                         } else {
-                            0.0
+                            progress.pulse();
                         };
                         // label.set_visible(true);
                         progress.set_visible(true);
                         cancel.set_visible(true);
                         label.set_label(&task_name);
-                        progress.set_fraction(pct);
+                        
                         start.set_sensitive(false);
                         cancel.set_sensitive(true);
                         btn_thresh_test.set_sensitive(false);
@@ -754,13 +755,14 @@ fn build_solhat_parameters() -> Result<ProcessParameters> {
         darkflat_inputs: p2s!(state.params.darkflat),
         bias_inputs: p2s!(state.params.bias),
         hot_pixel_map: p2s!(state.params.hot_pixel_map),
+        analysis_window_size: state.params.analysis_window_size,
     })
 }
 
 fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessContext> {
     let params = build_solhat_parameters()?;
 
-    set_task_status(&sender, "Processing Master Flat", 2, 1);
+    set_task_status(&sender, "Processing Master Flat", 0, 0);
     let master_flat = if let Some(inputs) = &params.flat_inputs {
         info!("Processing master flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -770,7 +772,7 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
 
     check_cancel_status(&sender);
 
-    set_task_status(&sender, "Processing Master Dark Flat", 2, 1);
+    set_task_status(&sender, "Processing Master Dark Flat", 0, 0);
     let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
         info!("Processing master dark flat...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -780,7 +782,7 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
 
     check_cancel_status(&sender);
 
-    set_task_status(&sender, "Processing Master Dark", 2, 1);
+    set_task_status(&sender, "Processing Master Dark", 0, 0);
     let master_dark = if let Some(inputs) = &params.dark_inputs {
         info!("Processing master dark...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -790,7 +792,7 @@ fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessC
 
     check_cancel_status(&sender);
 
-    set_task_status(&sender, "Processing Master Bias", 2, 1);
+    set_task_status(&sender, "Processing Master Bias", 0, 0);
     let master_bias = if let Some(inputs) = &params.bias_inputs {
         info!("Processing master bias...");
         CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
@@ -858,17 +860,21 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
     *COUNTER.lock().unwrap() = 0;
     let sender = master_sender.clone();
     set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
-    context.frame_records = frame_sigma_analysis(&context, move |fr| {
-        info!(
-            "frame_sigma_analysis(): Frame processed with sigma {}",
-            fr.sigma
-        );
-        check_cancel_status(&sender);
+    context.frame_records = frame_sigma_analysis_window_size(
+        &context,
+        context.parameters.analysis_window_size,
+        move |fr| {
+            info!(
+                "frame_sigma_analysis(): Frame processed with sigma {}",
+                fr.sigma
+            );
+            check_cancel_status(&sender);
 
-        let mut c = COUNTER.lock().unwrap();
-        *c = *c + 1;
-        set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
-    })?;
+            let mut c = COUNTER.lock().unwrap();
+            *c = *c + 1;
+            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
+        },
+    )?;
 
     /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
@@ -938,7 +944,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
         })?;
 
         check_cancel_status(&master_sender);
-        set_task_status(&master_sender, "Finalizing", 2, 1);
+        set_task_status(&master_sender, "Finalizing", 0, 0);
         let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
 
         // Let the user know some stuff...
@@ -962,7 +968,7 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
         );
 
         // Save finalized image to disk
-        set_task_status(&master_sender, "Saving", 2, 1);
+        set_task_status(&master_sender, "Saving", 0, 0);
         stacked_buffer.save(output_filename.to_string_lossy().as_ref())?;
 
         // The user will likely never see this actually appear on screen

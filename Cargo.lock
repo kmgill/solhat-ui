@@ -1915,7 +1915,7 @@ dependencies = [
 [[package]]
 name = "solhat"
 version = "0.6.0"
-source = "git+https://github.com/kmgill/solhat.git#3cbf46c35102803da828a639a99e1a0875d05f6c"
+source = "git+https://github.com/kmgill/solhat.git#f3a0ad8c30e694cbdd360033a499b54704dcfe44"
 dependencies = [
  "anyhow",
  "astral",

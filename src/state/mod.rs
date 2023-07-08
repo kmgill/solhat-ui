@@ -28,6 +28,7 @@ pub struct ParametersState {
     pub max_sigma: f64,
     pub top_percentage: f64,
     pub decorrelated_colors: bool,
+    pub analysis_window_size: usize,
 }
 
 impl Default for ParametersState {
@@ -51,6 +52,7 @@ impl Default for ParametersState {
             max_sigma: 2000.0,
             top_percentage: 10.0,
             decorrelated_colors: false,
+            analysis_window_size: 128,
         }
     }
 }

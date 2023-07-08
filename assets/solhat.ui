@@ -644,7 +644,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Drizzle:</property>
+                    <property name="label">Analysis Window Size:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -658,9 +658,10 @@
                     </layout>
                   </object>
                 </child>
+
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Use Maximum Frames:</property>
+                    <property name="label">Drizzle:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -674,9 +675,11 @@
                     </layout>
                   </object>
                 </child>
+
+
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Minimum Sigma:</property>
+                    <property name="label">Use Maximum Frames:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -692,7 +695,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Maximum Sigma:</property>
+                    <property name="label">Minimum Sigma:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -708,7 +711,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Include Top Percentage:</property>
+                    <property name="label">Maximum Sigma:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -724,7 +727,7 @@
                 </child>
                 <child>
                   <object class="GtkLabel">
-                    <property name="label">Filename Free Text:</property>
+                    <property name="label">Include Top Percentage:</property>
                     <property name="margin-bottom">3</property>
                     <property name="margin-end">3</property>
                     <property name="margin-start">3</property>
@@ -734,6 +737,22 @@
                       <property name="column">0</property>
                       <property name="column-span">1</property>
                       <property name="row">9</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Filename Free Text:</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">10</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -751,7 +770,7 @@
                     <layout>
                       <property name="column">0</property>
                       <property name="column-span">2</property>
-                      <property name="row">10</property>
+                      <property name="row">11</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -792,26 +811,47 @@
                         <property name="margin-top">3</property>
                       </object>
                     </child>
-
-
-
                     <layout>
                         <property name="column">1</property>
                         <property name="column-span">1</property>
                         <property name="row">3</property>
                         <property name="row-span">1</property>
                       </layout>
-                  
-                  
-                  
                   </object>
-
-
-
-
-
-
                 </child>
+
+                <!-- Analysis Window Size -->
+                <child>
+                  <object class="GtkSpinButton" id="spn_window_size">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_window_size">
+                        <property name="page-increment">10.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">1.0</property>
+                        <property name="upper">1024.0</property>
+                        <property name="value">128.0</property>
+                        <property name="lower">16.0</property>
+                      </object>
+                    </property>
+                    <property name="climb-rate">1.0</property>
+                    <property name="digits">0</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="numeric">True</property>
+                    <property name="value">128</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">4</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+
+
+
 
 
 
@@ -832,7 +872,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">4</property>
+                      <property name="row">5</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -858,7 +898,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">5</property>
+                      <property name="row">6</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -883,7 +923,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">6</property>
+                      <property name="row">7</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -910,7 +950,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">7</property>
+                      <property name="row">8</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -937,7 +977,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">8</property>
+                      <property name="row">9</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
@@ -957,7 +997,7 @@
                     <layout>
                       <property name="column">1</property>
                       <property name="column-span">1</property>
-                      <property name="row">9</property>
+                      <property name="row">10</property>
                       <property name="row-span">1</property>
                     </layout>
                   </object>
