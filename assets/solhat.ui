@@ -822,32 +822,52 @@
 
                 <!-- Analysis Window Size -->
                 <child>
-                  <object class="GtkSpinButton" id="spn_window_size">
-                    <property name="adjustment">
-                      <object class="GtkAdjustment" id="adj_window_size">
-                        <property name="page-increment">10.0</property>
-                        <property name="page-size">10.0</property>
-                        <property name="step-increment">1.0</property>
-                        <property name="upper">1024.0</property>
-                        <property name="value">128.0</property>
-                        <property name="lower">16.0</property>
+                  <object class="GtkBox">
+                    <child>
+
+                      <object class="GtkSpinButton" id="spn_window_size">
+                        <property name="adjustment">
+                          <object class="GtkAdjustment" id="adj_window_size">
+                            <property name="page-increment">10.0</property>
+                            <property name="page-size">10.0</property>
+                            <property name="step-increment">1.0</property>
+                            <property name="upper">1024.0</property>
+                            <property name="value">128.0</property>
+                            <property name="lower">16.0</property>
+                          </object>
+                        </property>
+                        <property name="climb-rate">1.0</property>
+                        <property name="digits">0</property>
+                        <property name="margin-bottom">3</property>
+                        <property name="margin-end">3</property>
+                        <property name="margin-start">3</property>
+                        <property name="margin-top">3</property>
+                        <property name="numeric">True</property>
+                        <property name="value">128</property>
+                        <property name="hexpand">True</property>
                       </object>
-                    </property>
-                    <property name="climb-rate">1.0</property>
-                    <property name="digits">0</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="numeric">True</property>
-                    <property name="value">128</property>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="btn_analysis">
+                        <property name="icon-name">utilities-system-monitor</property>
+                        <property name="has-tooltip">true</property>
+                        <property name="tooltip-text">Run Analysis</property>
+                        <property name="margin-bottom">3</property>
+                        <property name="margin-end">3</property>
+                        <property name="margin-start">3</property>
+                        <property name="margin-top">3</property>
+                      </object>
+                    </child>
                     <layout>
-                      <property name="column">1</property>
-                      <property name="column-span">1</property>
-                      <property name="row">4</property>
-                      <property name="row-span">1</property>
-                    </layout>
+                        <property name="column">1</property>
+                        <property name="column-span">1</property>
+                        <property name="row">4</property>
+                        <property name="row-span">1</property>
+                      </layout>
                   </object>
+
+
+
                 </child>
 
 

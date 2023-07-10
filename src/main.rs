@@ -9,6 +9,7 @@ mod taskstatus;
 use taskstatus::*;
 
 use anyhow::Result;
+use charts::{Chart, LineSeriesView, MarkerType, PointLabelPosition, ScaleLinear};
 use gtk::gdk::Display;
 use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::glib::{MainContext, Priority, Sender, Type};
@@ -20,7 +21,7 @@ use gtk::{
 use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton};
 use itertools::iproduct;
 use sciimg::prelude::*;
-use sciimg::{min, max};
+use sciimg::{max, min};
 use solhat::anaysis::frame_sigma_analysis_window_size;
 use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
 use solhat::context::{ProcessContext, ProcessParameters};
@@ -36,7 +37,6 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use charts::{Chart, ScaleLinear, MarkerType, PointLabelPosition, LineSeriesView};
 
 #[macro_use]
 extern crate stump;
@@ -432,6 +432,63 @@ fn build_ui(application: &Application) {
                                                             .modal(true)
                                                             .message("Error")
                                                             .detail("No light input specified. Please do so before continuing")
+                                                            .build();
+
+                            info_dialog.show(Some(&window));
+                        }
+                        Continue(true)
+                    }
+        ),
+    );
+
+    ////////
+    // Analysis
+    ////////
+    let btn_analysis: Button = bind_object!(builder, "btn_analysis");
+    let (ana_stat_sender, ana_stat_receiver) = MainContext::channel(Priority::default());
+    let (ana_data_sender, ana_data_receiver) = MainContext::channel(Priority::default());
+    let ps = process_sender.clone();
+    btn_analysis.connect_clicked(glib::clone!(@weak window, @weak b as builder => move |_| {
+        info!("Analysis clicked");
+        let stat_sender = ana_stat_sender.clone();
+        let data_sender = ana_data_sender.clone();
+        let ps =  ps.clone();
+
+        thread::spawn(move || {
+            stat_sender.send(false).expect("Could not send through channel");
+            if let Ok(data_series) = run_sigma_analysis(ps) {
+                data_sender.send(Some(data_series)).expect("Failed to send pixbuf through channel");
+            } else {
+                data_sender.send(None).expect("Failed to send pixbuf through channel");
+            }
+            stat_sender.send(true).expect("Could not send through channel");
+        });
+
+    }));
+    ana_stat_receiver.attach(
+        None,
+        glib::clone!(@weak btn_analysis => @default-return Continue(false),
+                    move |enable_button| {
+                        btn_analysis.set_sensitive(enable_button);
+                        Continue(true)
+                    }
+        ),
+    );
+
+    ana_data_receiver.attach(
+        None,
+        glib::clone!(@weak window, @weak b as builder => @default-return Continue(false),
+                    move |data_series| {
+                        if let Some(data_series) = &data_series {
+                            create_chart(data_series);
+                            // let pix = image_to_picture(&buffer).expect("Failed to convert imagebuffer to pixbuf");
+                            // let pic: Picture = bind_object!(builder, "img_preview_light");
+                            // pic.set_pixbuf(Some(&pix));
+                        } else {
+                            let info_dialog = AlertDialog::builder()
+                                                            .modal(true)
+                                                            .message("Error")
+                                                            .detail("Unable to perform sigma analysis")
                                                             .build();
 
                             info_dialog.show(Some(&window));
@@ -1007,7 +1064,6 @@ fn run_thresh_test(master_sender: Sender<TaskStatusContainer>) -> Result<Image> 
     Ok(result)
 }
 
-
 ///////////////////////////////////////////////////////
 /// Sigma Anaysis
 ///////////////////////////////////////////////////////
@@ -1019,7 +1075,7 @@ struct AnalysisRange {
 
 struct AnalysisSeries {
     unsorted_sigma: Vec<f64>,
-    sorted_sigma: Vec<f64>
+    sorted_sigma: Vec<f64>,
 }
 
 impl AnalysisSeries {
@@ -1027,21 +1083,16 @@ impl AnalysisSeries {
         let mut mn = std::f64::MAX;
         let mut mx = std::f64::MIN;
 
-        self.unsorted_sigma.iter().for_each(|s|{
+        self.unsorted_sigma.iter().for_each(|s| {
             mn = min!(*s, mn);
             mx = max!(*s, mx);
         });
 
-        AnalysisRange{
-            min: mn,
-            max: mx
-        }
+        AnalysisRange { min: mn, max: mx }
     }
 }
 
-
-
-fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<AnalysisSeries>  {
+fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<AnalysisSeries> {
     let context = ProcessContext::create_with_calibration_frames(
         &build_solhat_parameters()?,
         CalibrationImage::new_empty(),
@@ -1049,7 +1100,6 @@ fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<Anal
         CalibrationImage::new_empty(),
         CalibrationImage::new_empty(),
     )?;
-
 
     check_cancel_status(&master_sender);
     let frame_count = context.frame_records.len();
@@ -1072,10 +1122,17 @@ fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<Anal
         },
     )?;
 
-    let mut sigma_list : Vec<f64> = vec![];
-    frame_records.iter().for_each(|fr| {
-        sigma_list.push(fr.sigma);
-    });
+    let mut sigma_list: Vec<f64> = vec![];
+    frame_records
+        .iter()
+        .filter(|fr| {
+            let min_sigma = context.parameters.min_sigma.unwrap_or(std::f64::MIN);
+            let max_sigma = context.parameters.max_sigma.unwrap_or(std::f64::MAX);
+            fr.sigma >= min_sigma && fr.sigma <= max_sigma
+        })
+        .for_each(|fr| {
+            sigma_list.push(fr.sigma);
+        });
 
     let mut sorted_sigma_list = sigma_list.clone();
     sorted_sigma_list.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -1083,13 +1140,13 @@ fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<Anal
     set_task_completed(&master_sender);
 
     Ok(AnalysisSeries {
-        unsorted_sigma : sigma_list,
-        sorted_sigma : sorted_sigma_list
+        unsorted_sigma: sigma_list,
+        sorted_sigma: sorted_sigma_list,
     })
 }
 
 // Based on https://github.com/askanium/rustplotlib/blob/master/examples/line_series_chart.rs
-fn create_chart(data:&AnalysisSeries) {
+fn create_chart(data: &AnalysisSeries) {
     let width = 800;
     let height = 600;
     let (top, right, bottom, left) = (90, 40, 50, 60);
@@ -1098,22 +1155,26 @@ fn create_chart(data:&AnalysisSeries) {
         .set_domain(vec![0_f32, data.unsorted_sigma.len() as f32])
         .set_range(vec![0, width - left - right]);
 
-    let rng  = data.minmax();
+    let rng = data.minmax();
 
     let y = ScaleLinear::new()
         .set_domain(vec![rng.min as f32, rng.max as f32])
         .set_range(vec![height - top - bottom, 0]);
 
-    // Convert sigma data to this
-    let line_data = vec![(12, 54), (100, 40), (120, 50), (180, 70)];
-
+    let line_data_1: Vec<(f32, f32)> = data
+        .sorted_sigma
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (i as f32, *s as f32))
+        .collect();
 
     let line_view = LineSeriesView::new()
         .set_x_scale(&x)
         .set_y_scale(&y)
-        .set_marker_type(MarkerType::Circle)
+        .set_marker_type(MarkerType::X)
         .set_label_position(PointLabelPosition::N)
-        .load_data(&line_data).unwrap();
+        .load_data(&line_data_1)
+        .unwrap();
 
     // Generate and save the chart.
     Chart::new()
@@ -1126,5 +1187,6 @@ fn create_chart(data:&AnalysisSeries) {
         .add_axis_left(&y)
         .add_left_axis_label("Custom Y Axis Label")
         .add_bottom_axis_label("Custom X Axis Label")
-        .save("line-chart.svg").unwrap();
+        .save("line-chart.svg")
+        .unwrap();
 }
