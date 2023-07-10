@@ -20,6 +20,7 @@ use gtk::{
 use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton};
 use itertools::iproduct;
 use sciimg::prelude::*;
+use sciimg::{min, max};
 use solhat::anaysis::frame_sigma_analysis_window_size;
 use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
 use solhat::context::{ProcessContext, ProcessParameters};
@@ -35,6 +36,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use charts::{Chart, ScaleLinear, MarkerType, PointLabelPosition, LineSeriesView};
 
 #[macro_use]
 extern crate stump;
@@ -981,6 +983,10 @@ async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
     Ok(())
 }
 
+///////////////////////////////////////////////////////
+/// Threshold Testing
+///////////////////////////////////////////////////////
+
 fn run_thresh_test(master_sender: Sender<TaskStatusContainer>) -> Result<Image> {
     set_task_status(&master_sender, "Processing Threshold Test", 2, 1);
     let context = ProcessContext::create_with_calibration_frames(
@@ -999,4 +1005,126 @@ fn run_thresh_test(master_sender: Sender<TaskStatusContainer>) -> Result<Image> 
 
     set_task_completed(&master_sender);
     Ok(result)
+}
+
+
+///////////////////////////////////////////////////////
+/// Sigma Anaysis
+///////////////////////////////////////////////////////
+
+struct AnalysisRange {
+    min: f64,
+    max: f64,
+}
+
+struct AnalysisSeries {
+    unsorted_sigma: Vec<f64>,
+    sorted_sigma: Vec<f64>
+}
+
+impl AnalysisSeries {
+    pub fn minmax(&self) -> AnalysisRange {
+        let mut mn = std::f64::MAX;
+        let mut mx = std::f64::MIN;
+
+        self.unsorted_sigma.iter().for_each(|s|{
+            mn = min!(*s, mn);
+            mx = max!(*s, mx);
+        });
+
+        AnalysisRange{
+            min: mn,
+            max: mx
+        }
+    }
+}
+
+
+
+fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<AnalysisSeries>  {
+    let context = ProcessContext::create_with_calibration_frames(
+        &build_solhat_parameters()?,
+        CalibrationImage::new_empty(),
+        CalibrationImage::new_empty(),
+        CalibrationImage::new_empty(),
+        CalibrationImage::new_empty(),
+    )?;
+
+
+    check_cancel_status(&master_sender);
+    let frame_count = context.frame_records.len();
+    *COUNTER.lock().unwrap() = 0;
+    let sender = master_sender.clone();
+    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
+    let frame_records = frame_sigma_analysis_window_size(
+        &context,
+        context.parameters.analysis_window_size,
+        move |fr| {
+            info!(
+                "frame_sigma_analysis(): Frame processed with sigma {}",
+                fr.sigma
+            );
+            check_cancel_status(&sender);
+
+            let mut c = COUNTER.lock().unwrap();
+            *c += 1;
+            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
+        },
+    )?;
+
+    let mut sigma_list : Vec<f64> = vec![];
+    frame_records.iter().for_each(|fr| {
+        sigma_list.push(fr.sigma);
+    });
+
+    let mut sorted_sigma_list = sigma_list.clone();
+    sorted_sigma_list.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    set_task_completed(&master_sender);
+
+    Ok(AnalysisSeries {
+        unsorted_sigma : sigma_list,
+        sorted_sigma : sorted_sigma_list
+    })
+}
+
+// Based on https://github.com/askanium/rustplotlib/blob/master/examples/line_series_chart.rs
+fn create_chart(data:&AnalysisSeries) {
+    let width = 800;
+    let height = 600;
+    let (top, right, bottom, left) = (90, 40, 50, 60);
+
+    let x = ScaleLinear::new()
+        .set_domain(vec![0_f32, data.unsorted_sigma.len() as f32])
+        .set_range(vec![0, width - left - right]);
+
+    let rng  = data.minmax();
+
+    let y = ScaleLinear::new()
+        .set_domain(vec![rng.min as f32, rng.max as f32])
+        .set_range(vec![height - top - bottom, 0]);
+
+    // Convert sigma data to this
+    let line_data = vec![(12, 54), (100, 40), (120, 50), (180, 70)];
+
+
+    let line_view = LineSeriesView::new()
+        .set_x_scale(&x)
+        .set_y_scale(&y)
+        .set_marker_type(MarkerType::Circle)
+        .set_label_position(PointLabelPosition::N)
+        .load_data(&line_data).unwrap();
+
+    // Generate and save the chart.
+    Chart::new()
+        .set_width(width)
+        .set_height(height)
+        .set_margins(top, right, bottom, left)
+        .add_title(String::from("Line Chart"))
+        .add_view(&line_view)
+        .add_axis_bottom(&x)
+        .add_axis_left(&y)
+        .add_left_axis_label("Custom Y Axis Label")
+        .add_bottom_axis_label("Custom X Axis Label")
+        .save("line-chart.svg").unwrap();
 }
