@@ -1136,6 +1136,7 @@ fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<Anal
 
     let mut sorted_sigma_list = sigma_list.clone();
     sorted_sigma_list.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted_sigma_list.reverse();
 
     set_task_completed(&master_sender);
 
@@ -1149,7 +1150,7 @@ fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<Anal
 fn create_chart(data: &AnalysisSeries) {
     let width = 800;
     let height = 600;
-    let (top, right, bottom, left) = (90, 40, 50, 60);
+    let (top, right, bottom, left) = (0, 40, 50, 60);
 
     let x = ScaleLinear::new()
         .set_domain(vec![0_f32, data.unsorted_sigma.len() as f32])
@@ -1168,12 +1169,27 @@ fn create_chart(data: &AnalysisSeries) {
         .map(|(i, s)| (i as f32, *s as f32))
         .collect();
 
-    let line_view = LineSeriesView::new()
+    let line_data_2: Vec<(f32, f32)> = data
+        .unsorted_sigma
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (i as f32, *s as f32))
+        .collect();
+
+    let line_view_1 = LineSeriesView::new()
         .set_x_scale(&x)
         .set_y_scale(&y)
         .set_marker_type(MarkerType::X)
-        .set_label_position(PointLabelPosition::N)
+        .set_label_visibility(false)
         .load_data(&line_data_1)
+        .unwrap();
+
+    let line_view_2 = LineSeriesView::new()
+        .set_x_scale(&x)
+        .set_y_scale(&y)
+        .set_marker_type(MarkerType::X)
+        .set_label_visibility(false)
+        .load_data(&line_data_2)
         .unwrap();
 
     // Generate and save the chart.
@@ -1181,12 +1197,12 @@ fn create_chart(data: &AnalysisSeries) {
         .set_width(width)
         .set_height(height)
         .set_margins(top, right, bottom, left)
-        .add_title(String::from("Line Chart"))
-        .add_view(&line_view)
+        .add_view(&line_view_1)
+        .add_view(&line_view_2)
         .add_axis_bottom(&x)
         .add_axis_left(&y)
-        .add_left_axis_label("Custom Y Axis Label")
-        .add_bottom_axis_label("Custom X Axis Label")
+        .add_left_axis_label("Sigma Quality")
+        .add_bottom_axis_label("Frame #")
         .save("line-chart.svg")
         .unwrap();
 }
