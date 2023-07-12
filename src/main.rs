@@ -9,16 +9,16 @@ mod taskstatus;
 use taskstatus::*;
 
 use anyhow::Result;
-use charts::{Chart, LineSeriesView, MarkerType, PointLabelPosition, ScaleLinear};
+use charts::{Chart, Color, LineSeriesView, MarkerType, PointLabelPosition, ScaleLinear};
 use gtk::gdk::Display;
-use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
+use gtk::gdk_pixbuf::{Colorspace, InterpType, Pixbuf, PixbufLoader};
 use gtk::glib::{MainContext, Priority, Sender, Type};
 #[allow(deprecated)]
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
     ScrolledWindow, SpinButton, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton};
+use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton, Notebook, Paned};
 use itertools::iproduct;
 use sciimg::prelude::*;
 use sciimg::{max, min};
@@ -43,6 +43,14 @@ extern crate stump;
 
 #[macro_use]
 extern crate lazy_static;
+
+
+const TAB_ID_LIGHT:i32 = 0;
+const TAB_ID_DARK:i32 = 1;
+const TAB_ID_FLAT:i32 = 2;
+const TAB_ID_FLATDARK:i32 = 3;
+const TAB_ID_BIAS:i32 = 4;
+const TAB_ID_ANALYSIS:i32 = 5;
 
 #[tokio::main]
 async fn main() -> Result<glib::ExitCode> {
@@ -85,13 +93,40 @@ macro_rules! update_output_filename {
 
 macro_rules! update_preview_from_ser_file {
     ($builder:expr,$ser_file_path:expr, $preview_id:expr) => {
-        let pic: Picture = bind_object!($builder, $preview_id);
+        
 
         if let Some(ext) = $ser_file_path.extension() {
             match ext.to_str().unwrap() {
                 "ser" => {
-                    let pix = picture_from_ser_file($ser_file_path.to_str().unwrap()).unwrap();
-                    pic.set_pixbuf(Some(&pix));
+
+                    let (pix_sender, pix_receiver) = MainContext::channel(Priority::default());
+
+                    thread::spawn(move || {
+                        // Load the ser file, grab the first frame, then send it over to the message loop
+                        let ser_file = SerFile::load_ser($ser_file_path.to_str().unwrap()).unwrap();
+                        let first_image = ser_file.get_frame(0).unwrap();
+                        pix_sender.send(Some(first_image)).expect("Failed to send pixbuf through channel");
+                    });
+
+                    let b = $builder.clone();
+                    pix_receiver.attach(
+                        None,
+                        glib::clone!( @weak b as builder => @default-return Continue(false),
+                                    move |pix_opt| {
+
+                                        if let Some(ser_frame) = pix_opt {
+                                            // If it's a valid image (and not None), convert it to
+                                            // gtk::Picture and display it
+                                            let pix = ser_frame_to_picture(&ser_frame).unwrap();
+                                            let pic: Picture = bind_object!(builder, $preview_id);
+                                            pic.set_pixbuf(Some(&pix));
+                                        }else {
+                                            error!("Failed to load preview image");
+                                        }
+                                        Continue(true)
+                                    }
+                                ),
+                            );
                 }
                 _ => {
                     error!("User loaded an invalid ser file: {:?}", $ser_file_path);
@@ -104,7 +139,7 @@ macro_rules! update_preview_from_ser_file {
 
 /// Binds the controls for the input files. The controls are the label, open, and clear buttons
 macro_rules! bind_open_clear {
-    ($builder:expr, $window:expr, $open_id:expr, $clear_id:expr, $label_id:expr, $preview_id:expr, $state_prop:ident, $opener:ident) => {{
+    ($builder:expr, $window:expr, $open_id:expr, $clear_id:expr, $label_id:expr, $preview_id:expr, $state_prop:ident, $opener:ident, $tab_id:expr) => {{
         let btn_open: Button = bind_object!($builder, $open_id);
         let btn_clear: Button = bind_object!($builder, $clear_id);
         let label: Label = bind_object!($builder, $label_id);
@@ -130,6 +165,12 @@ macro_rules! bind_open_clear {
                 // the preview to the user
                 if !$preview_id.is_empty()  {
                     update_preview_from_ser_file!(builder, f, $preview_id);
+                }
+
+                // Set tab_id if no tab is needed (such as for non image files)
+                if $tab_id >= 0 {
+                    let notebook : Notebook = bind_object!(builder, "notebook_previews");
+                    notebook.set_page($tab_id);
                 }
 
             }));
@@ -224,7 +265,8 @@ fn build_ui(application: &Application) {
         "lbl_light",
         "img_preview_light",
         light,
-        open_ser_file
+        open_ser_file,
+        TAB_ID_LIGHT
     );
 
     bind_open_clear!(
@@ -235,7 +277,8 @@ fn build_ui(application: &Application) {
         "lbl_dark",
         "img_preview_dark",
         dark,
-        open_ser_file
+        open_ser_file,
+        TAB_ID_DARK
     );
 
     bind_open_clear!(
@@ -246,7 +289,8 @@ fn build_ui(application: &Application) {
         "lbl_flat",
         "img_preview_flat",
         flat,
-        open_ser_file
+        open_ser_file,
+        TAB_ID_FLAT
     );
 
     bind_open_clear!(
@@ -257,7 +301,8 @@ fn build_ui(application: &Application) {
         "lbl_darkflat",
         "img_preview_darkflat",
         darkflat,
-        open_ser_file
+        open_ser_file,
+        TAB_ID_FLATDARK
     );
 
     bind_open_clear!(
@@ -268,7 +313,8 @@ fn build_ui(application: &Application) {
         "lbl_bias",
         "img_preview_bias",
         bias,
-        open_ser_file
+        open_ser_file,
+        TAB_ID_BIAS
     );
 
     bind_open_clear!(
@@ -279,7 +325,8 @@ fn build_ui(application: &Application) {
         "lbl_hotpixelmap",
         "",
         hot_pixel_map,
-        open_toml_file
+        open_toml_file,
+        -1
     );
 
     ////////
@@ -480,10 +527,19 @@ fn build_ui(application: &Application) {
         glib::clone!(@weak window, @weak b as builder => @default-return Continue(false),
                     move |data_series| {
                         if let Some(data_series) = &data_series {
-                            create_chart(data_series);
-                            // let pix = image_to_picture(&buffer).expect("Failed to convert imagebuffer to pixbuf");
-                            // let pic: Picture = bind_object!(builder, "img_preview_light");
-                            // pic.set_pixbuf(Some(&pix));
+                            let pic: Picture = bind_object!(builder, "img_analysis");
+                            let notebook : Notebook = bind_object!(builder, "notebook_previews");
+                            
+                            // Try to find out the size dynamically. Currently, using
+                            // pic.width()/pic.height() don't work before it's been set to something.
+                            // Also, using notebook width/height seems sorta hackish.
+                            let svg_string = create_chart(data_series,notebook.width() as isize,notebook.height() as isize).unwrap();
+                            let loader = PixbufLoader::new();
+                            loader.write(svg_string.as_bytes()).expect("Failed to write svg to pixbuf loader");
+                            loader.close().expect("Failed to load svg");
+                            let pixbuf = loader.pixbuf().unwrap();
+                            pic.set_pixbuf(Some(&pixbuf));
+                            notebook.set_page(TAB_ID_ANALYSIS);
                         } else {
                             let info_dialog = AlertDialog::builder()
                                                             .modal(true)
@@ -497,6 +553,14 @@ fn build_ui(application: &Application) {
                     }
         ),
     );
+
+    // let pic: Picture = bind_object!(builder, "img_preview_light");
+    // pic.connect_width_request_notify(|f| {
+    //     info!("Width!");
+    // });
+    // pic.connect_scale_factor_notify(|f| {
+    //     info!("Scale factor!");
+    // });
 
     ////////
     // Task Monitor
@@ -602,8 +666,21 @@ fn build_ui(application: &Application) {
 
     // If there's a file in the parameters state already (such as from saved state),
     // we need to update the preview pane.
-    if let Some(light_path) = &STATE.lock().unwrap().params.light {
+    
+    if let Some(light_path) = get_state_param!(light) {
         update_preview_from_ser_file!(builder, light_path, "img_preview_light");
+    }
+    if let Some(dark_path) = get_state_param!(dark) {
+        update_preview_from_ser_file!(builder, dark_path, "img_preview_dark");
+    }
+    if let Some(flat_path) = get_state_param!(flat) {
+        update_preview_from_ser_file!(builder, flat_path, "img_preview_flat");
+    }
+    if let Some(darkflat_path) = get_state_param!(darkflat) {
+        update_preview_from_ser_file!(builder, darkflat_path, "img_preview_darkflat");
+    }
+    if let Some(bias_path) = get_state_param!(bias) {
+        update_preview_from_ser_file!(builder, bias_path, "img_preview_bias");
     }
 
     window.present();
@@ -1074,21 +1151,44 @@ struct AnalysisRange {
 }
 
 struct AnalysisSeries {
-    unsorted_sigma: Vec<f64>,
-    sorted_sigma: Vec<f64>,
+    sigma_list: Vec<f64>,
 }
 
 impl AnalysisSeries {
+    pub fn sorted_list(&self) -> Vec<f64> {
+        let mut sorted = self.sigma_list.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.reverse();
+        sorted
+    }
+
     pub fn minmax(&self) -> AnalysisRange {
         let mut mn = std::f64::MAX;
         let mut mx = std::f64::MIN;
 
-        self.unsorted_sigma.iter().for_each(|s| {
+        self.sigma_list.iter().for_each(|s| {
             mn = min!(*s, mn);
             mx = max!(*s, mx);
         });
 
         AnalysisRange { min: mn, max: mx }
+    }
+
+    pub fn sma(&self, window: usize) -> Vec<f64> {
+        let half_win = window / 2;
+        let mut sma: Vec<f64> = vec![];
+        (0..self.sigma_list.len()).into_iter().for_each(|i| {
+            let start = if i <= half_win { 0 } else { i - half_win };
+
+            let end = if i + half_win <= self.sigma_list.len() {
+                i + half_win
+            } else {
+                self.sigma_list.len()
+            };
+            let s = self.sigma_list[start..end].iter().sum::<f64>() / (end - start) as f64;
+            sma.push(s);
+        });
+        sma
     }
 }
 
@@ -1134,26 +1234,19 @@ fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<Anal
             sigma_list.push(fr.sigma);
         });
 
-    let mut sorted_sigma_list = sigma_list.clone();
-    sorted_sigma_list.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    sorted_sigma_list.reverse();
-
     set_task_completed(&master_sender);
 
     Ok(AnalysisSeries {
-        unsorted_sigma: sigma_list,
-        sorted_sigma: sorted_sigma_list,
+        sigma_list: sigma_list,
     })
 }
 
 // Based on https://github.com/askanium/rustplotlib/blob/master/examples/line_series_chart.rs
-fn create_chart(data: &AnalysisSeries) {
-    let width = 800;
-    let height = 600;
+fn create_chart(data: &AnalysisSeries, width:isize, height:isize) -> Result<String> {
     let (top, right, bottom, left) = (0, 40, 50, 60);
 
     let x = ScaleLinear::new()
-        .set_domain(vec![0_f32, data.unsorted_sigma.len() as f32])
+        .set_domain(vec![0_f32, data.sigma_list.len() as f32])
         .set_range(vec![0, width - left - right]);
 
     let rng = data.minmax();
@@ -1163,14 +1256,21 @@ fn create_chart(data: &AnalysisSeries) {
         .set_range(vec![height - top - bottom, 0]);
 
     let line_data_1: Vec<(f32, f32)> = data
-        .sorted_sigma
+        .sorted_list()
         .iter()
         .enumerate()
         .map(|(i, s)| (i as f32, *s as f32))
         .collect();
 
     let line_data_2: Vec<(f32, f32)> = data
-        .unsorted_sigma
+        .sma(data.sigma_list.len() / 20)
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (i as f32, *s as f32))
+        .collect();
+
+    let line_data_3: Vec<(f32, f32)> = data
+        .sigma_list
         .iter()
         .enumerate()
         .map(|(i, s)| (i as f32, *s as f32))
@@ -1181,6 +1281,8 @@ fn create_chart(data: &AnalysisSeries) {
         .set_y_scale(&y)
         .set_marker_type(MarkerType::X)
         .set_label_visibility(false)
+        .set_marker_visibility(false)
+        .set_colors(Color::from_vec_of_hex_strings(vec!["#AAAAAA"]))
         .load_data(&line_data_1)
         .unwrap();
 
@@ -1189,20 +1291,34 @@ fn create_chart(data: &AnalysisSeries) {
         .set_y_scale(&y)
         .set_marker_type(MarkerType::X)
         .set_label_visibility(false)
+        .set_marker_visibility(false)
+        .set_colors(Color::from_vec_of_hex_strings(vec!["#FF4700"]))
         .load_data(&line_data_2)
         .unwrap();
 
+    let line_view_3 = LineSeriesView::new()
+        .set_x_scale(&x)
+        .set_y_scale(&y)
+        .set_marker_type(MarkerType::X)
+        .set_label_visibility(false)
+        .set_marker_visibility(false)
+        .set_colors(Color::from_vec_of_hex_strings(vec!["#333333"]))
+        .load_data(&line_data_3)
+        .unwrap();
+
     // Generate and save the chart.
-    Chart::new()
+    let svg = Chart::new()
         .set_width(width)
         .set_height(height)
         .set_margins(top, right, bottom, left)
-        .add_view(&line_view_1)
+        .add_view(&line_view_3)
         .add_view(&line_view_2)
+        .add_view(&line_view_1)
         .add_axis_bottom(&x)
         .add_axis_left(&y)
         .add_left_axis_label("Sigma Quality")
         .add_bottom_axis_label("Frame #")
-        .save("line-chart.svg")
+        .to_string()
         .unwrap();
+    Ok(svg)
 }

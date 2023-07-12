@@ -1086,7 +1086,7 @@
         </child>
         <child>
 
-          <object class="GtkPaned">
+          <object class="GtkPaned" id="paned-rightside"> 
             <property name="end-child">
 
               <object class="GtkScrolledWindow" id="scrl_log_output">
@@ -1111,7 +1111,7 @@
             </property>
             <property name="orientation">vertical</property>
             <property name="start-child">
-              <object class="GtkNotebook">
+              <object class="GtkNotebook" id="notebook_previews">
 
                 <!-- Light -->
                 <child>
@@ -1205,6 +1205,25 @@
                 <child type="tab">
                   <object class="GtkLabel" id="notebook-tab-bias">
                     <property name="label">Bias</property>
+                  </object>
+                </child>
+
+                <!-- Analysis -->
+                <child>
+                  <object class="GtkPicture" id="img_analysis">
+                    <property name="hexpand">True</property>
+                    <property name="hexpand-set">True</property>
+                    <property name="margin-bottom">3</property>
+                    <property name="margin-end">3</property>
+                    <property name="margin-start">3</property>
+                    <property name="margin-top">3</property>
+                    <property name="valign">start</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </child>
+                <child type="tab">
+                  <object class="GtkLabel" id="notebook-tab-analysis">
+                    <property name="label">Analysis</property>
                   </object>
                 </child>
 

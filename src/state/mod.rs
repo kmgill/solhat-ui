@@ -135,7 +135,7 @@ lazy_static! {
 
 macro_rules! get_state_param {
     ($prop:ident) => {
-        state::STATE.lock().unwrap().params.$prop
+        state::STATE.lock().unwrap().params.$prop.to_owned()
     };
 }
 
