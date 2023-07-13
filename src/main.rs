@@ -528,6 +528,7 @@ fn build_ui(application: &Application) {
                     move |data_series| {
                         if let Some(data_series) = &data_series {
                             let pic: Picture = bind_object!(builder, "img_analysis");
+                            let pic_label : Label =  bind_object!(builder, "lbl_analysis");
                             let notebook : Notebook = bind_object!(builder, "notebook_previews");
                             
                             // Try to find out the size dynamically. Currently, using
@@ -539,6 +540,8 @@ fn build_ui(application: &Application) {
                             loader.close().expect("Failed to load svg");
                             let pixbuf = loader.pixbuf().unwrap();
                             pic.set_pixbuf(Some(&pixbuf));
+                            pic.set_visible(true);
+                            pic_label.set_visible(false);
                             notebook.set_page(TAB_ID_ANALYSIS);
                         } else {
                             let info_dialog = AlertDialog::builder()
@@ -794,6 +797,7 @@ fn assemble_output_filename() -> Result<PathBuf> {
     Ok(output_path)
 }
 
+#[allow(dead_code)]
 fn picture_from_ser_file(file_path: &str) -> Result<Pixbuf> {
     let ser_file = SerFile::load_ser(file_path).unwrap();
     let first_image = ser_file.get_frame(0).unwrap();
@@ -1193,13 +1197,28 @@ impl AnalysisSeries {
 }
 
 fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<AnalysisSeries> {
-    let context = ProcessContext::create_with_calibration_frames(
+    let mut context = ProcessContext::create_with_calibration_frames(
         &build_solhat_parameters()?,
         CalibrationImage::new_empty(),
         CalibrationImage::new_empty(),
         CalibrationImage::new_empty(),
         CalibrationImage::new_empty(),
     )?;
+
+
+    check_cancel_status(&master_sender);
+    let frame_count = context.frame_records.len();
+    *COUNTER.lock().unwrap() = 0;
+    let sender = master_sender.clone();
+    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
+    context.frame_records = frame_offset_analysis(&context, move |_fr| {
+        info!("frame_offset_analysis(): Frame processed.");
+        check_cancel_status(&sender);
+
+        let mut c = COUNTER.lock().unwrap();
+        *c += 1;
+        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
+    })?;
 
     check_cancel_status(&master_sender);
     let frame_count = context.frame_records.len();

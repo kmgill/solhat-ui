@@ -1210,17 +1210,34 @@
 
                 <!-- Analysis -->
                 <child>
-                  <object class="GtkPicture" id="img_analysis">
-                    <property name="hexpand">True</property>
-                    <property name="hexpand-set">True</property>
-                    <property name="margin-bottom">3</property>
-                    <property name="margin-end">3</property>
-                    <property name="margin-start">3</property>
-                    <property name="margin-top">3</property>
-                    <property name="valign">start</property>
-                    <property name="vexpand">True</property>
+
+                  <object class="GtkBox" id="analysis_box">
+                    <child>
+
+                      <object class="GtkPicture" id="img_analysis">
+                        <property name="hexpand">True</property>
+                        <property name="hexpand-set">True</property>
+                        <property name="margin-bottom">3</property>
+                        <property name="margin-end">3</property>
+                        <property name="margin-start">3</property>
+                        <property name="margin-top">3</property>
+                        <property name="valign">start</property>
+                        <property name="vexpand">True</property>
+                        <property name="visible">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="lbl_analysis">
+                        <property name="label">Run Analysis to display statistics</property>
+                        <property name="hexpand">True</property>
+                        <property name="hexpand-set">True</property>
+                      </object>
+
+                    </child>
                   </object>
                 </child>
+
+                  
                 <child type="tab">
                   <object class="GtkLabel" id="notebook-tab-analysis">
                     <property name="label">Analysis</property>
