@@ -1,11 +1,17 @@
 use anyhow::Result;
+use gtk::glib::Sender;
 use serde::{Deserialize, Serialize};
+use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
+use solhat::context::{ProcessContext, ProcessParameters};
 use solhat::drizzle::Scale;
 use solhat::target::Target;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+use crate::cancel::*;
+use crate::taskstatus::*;
 
 /// Describes the parameters needed to run the SolHat algorithm
 #[derive(Deserialize, Serialize, Clone)]
@@ -135,19 +141,19 @@ lazy_static! {
 
 macro_rules! get_state_param {
     ($prop:ident) => {
-        state::STATE.lock().unwrap().params.$prop.to_owned()
+        crate::state::STATE.lock().unwrap().params.$prop.to_owned()
     };
 }
 
 macro_rules! set_state_param {
     ($prop:ident, $value:expr) => {
-        state::STATE.lock().unwrap().params.$prop = $value;
+        crate::state::STATE.lock().unwrap().params.$prop = $value;
     };
 }
 
 macro_rules! set_state_ui {
     ($prop:ident, $value:expr) => {
-        state::STATE.lock().unwrap().ui.$prop = $value;
+        crate::state::STATE.lock().unwrap().ui.$prop = $value;
     };
 }
 
@@ -163,4 +169,98 @@ macro_rules! set_last_opened_folder {
         set_state_ui!(last_opened_folder, Some($dir.clone()));
         info!("Setting last opened folder to {:?}", $dir);
     };
+}
+
+macro_rules! p2s {
+    ($pb:expr) => {
+        if let Some(pb) = &$pb {
+            Some(pb.as_os_str().to_str().unwrap().to_string().to_owned())
+        } else {
+            None
+        }
+    };
+}
+
+pub fn build_solhat_parameters() -> Result<ProcessParameters> {
+    let state = STATE.lock().unwrap();
+
+    if state.params.light.is_none() {
+        return Err(anyhow!("No light input identified"));
+    }
+    Ok(ProcessParameters {
+        input_files: vec![p2s!(state.params.light).unwrap()],
+        obj_detection_threshold: state.params.obj_detection_threshold,
+        obs_latitude: state.params.obs_latitude,
+        obs_longitude: state.params.obs_longitude,
+        target: state.params.target,
+        crop_width: None,
+        crop_height: None,
+        max_frames: Some(state.params.max_frames),
+        min_sigma: Some(state.params.min_sigma),
+        max_sigma: Some(state.params.max_sigma),
+        top_percentage: Some(state.params.top_percentage),
+        drizzle_scale: state.params.drizzle_scale,
+        initial_rotation: 0.0,
+        flat_inputs: p2s!(state.params.flat),
+        dark_inputs: p2s!(state.params.dark),
+        darkflat_inputs: p2s!(state.params.darkflat),
+        bias_inputs: p2s!(state.params.bias),
+        hot_pixel_map: p2s!(state.params.hot_pixel_map),
+        analysis_window_size: state.params.analysis_window_size,
+    })
+}
+
+pub fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessContext> {
+    let params = build_solhat_parameters()?;
+
+    set_task_status(sender, "Processing Master Flat", 0, 0);
+    let master_flat = if let Some(inputs) = &params.flat_inputs {
+        info!("Processing master flat...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    check_cancel_status(sender)?;
+
+    set_task_status(sender, "Processing Master Dark Flat", 0, 0);
+    let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
+        info!("Processing master dark flat...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    check_cancel_status(sender)?;
+
+    set_task_status(sender, "Processing Master Dark", 0, 0);
+    let master_dark = if let Some(inputs) = &params.dark_inputs {
+        info!("Processing master dark...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    check_cancel_status(sender)?;
+
+    set_task_status(sender, "Processing Master Bias", 0, 0);
+    let master_bias = if let Some(inputs) = &params.bias_inputs {
+        info!("Processing master bias...");
+        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
+    } else {
+        CalibrationImage::new_empty()
+    };
+
+    check_cancel_status(sender)?;
+
+    info!("Creating process context struct");
+    let context = ProcessContext::create_with_calibration_frames(
+        &params,
+        master_flat,
+        master_darkflat,
+        master_dark,
+        master_bias,
+    )?;
+
+    Ok(context)
 }

@@ -1,5 +1,6 @@
 #[macro_use]
 mod state;
+use gtk::gdk_pixbuf::PixbufLoader;
 use state::*;
 
 mod cancel;
@@ -8,35 +9,29 @@ use cancel::*;
 mod taskstatus;
 use taskstatus::*;
 
+mod analysis;
+use analysis::*;
+
+mod process;
+
+mod conversion;
+use conversion::*;
+
 use anyhow::Result;
-use charts::{Chart, Color, LineSeriesView, MarkerType, PointLabelPosition, ScaleLinear};
 use gtk::gdk::Display;
-use gtk::gdk_pixbuf::{Colorspace, InterpType, Pixbuf, PixbufLoader};
-use gtk::glib::{MainContext, Priority, Sender, Type};
+use gtk::glib::{MainContext, Priority, Type};
 #[allow(deprecated)]
 use gtk::{
     gio, prelude::*, Adjustment, ComboBoxText, CssProvider, Entry, Label, Picture, ProgressBar,
     ScrolledWindow, SpinButton, TextBuffer, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton, Notebook, Paned};
-use itertools::iproduct;
-use sciimg::prelude::*;
-use sciimg::{max, min};
-use solhat::anaysis::frame_sigma_analysis_window_size;
-use solhat::calibrationframe::{CalibrationImage, ComputeMethod};
-use solhat::context::{ProcessContext, ProcessParameters};
+use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, CheckButton, Notebook};
 use solhat::drizzle::Scale;
-use solhat::limiting::frame_limit_determinate;
-use solhat::offsetting::frame_offset_analysis;
-use solhat::rotation::frame_rotation_analysis;
-use solhat::ser::{SerFile, SerFrame};
-use solhat::stacking::process_frame_stacking;
 use solhat::target::Target;
-use solhat::threshtest::compute_rgb_threshtest_image;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use std::thread;
+use solhat::ser::SerFile;
 
 #[macro_use]
 extern crate stump;
@@ -448,7 +443,7 @@ fn build_ui(application: &Application) {
 
         thread::spawn(move || {
             stat_sender.send(false).expect("Could not send through channel");
-            if let Ok(buffer) = run_thresh_test(ps) {
+            if let Ok(buffer) = threshold::run_thresh_test(ps) {
                 pix_sender.send(Some(buffer)).expect("Failed to send pixbuf through channel");
             } else {
                 pix_sender.send(None).expect("Failed to send pixbuf through channel");
@@ -503,11 +498,14 @@ fn build_ui(application: &Application) {
 
         thread::spawn(move || {
             stat_sender.send(false).expect("Could not send through channel");
-            if let Ok(data_series) = run_sigma_analysis(ps) {
-                data_sender.send(Some(data_series)).expect("Failed to send pixbuf through channel");
-            } else {
-                data_sender.send(None).expect("Failed to send pixbuf through channel");
-            }
+            match sigma::run_sigma_analysis(ps) {
+                Ok(data_series) => data_sender.send(Some(data_series)).expect("Failed to send pixbuf through channel"),
+                Err(TaskCompletion::Error(why)) => {
+                    error!("Task error: {:?}", why);
+                    data_sender.send(None).expect("Failed to send pixbuf through channel")
+                },
+                Err(_) => {} // Ignore
+            };
             stat_sender.send(true).expect("Could not send through channel");
         });
 
@@ -534,7 +532,7 @@ fn build_ui(application: &Application) {
                             // Try to find out the size dynamically. Currently, using
                             // pic.width()/pic.height() don't work before it's been set to something.
                             // Also, using notebook width/height seems sorta hackish.
-                            let svg_string = create_chart(data_series,notebook.width() as isize,notebook.height() as isize).unwrap();
+                            let svg_string = sigma::create_chart(data_series,notebook.width() as isize,notebook.height() as isize).unwrap();
                             let loader = PixbufLoader::new();
                             loader.write(svg_string.as_bytes()).expect("Failed to write svg to pixbuf loader");
                             loader.close().expect("Failed to load svg");
@@ -594,13 +592,13 @@ fn build_ui(application: &Application) {
                     status: Some(TaskStatus::TaskPercentage("Starting".to_owned(), 0, 0)),
                 })
                 .expect("Failed to sent task status");
-                run_async(ps).await.unwrap(); //.await.unwrap();
+                process::run_async(ps, assemble_output_filename().unwrap()).await.unwrap(); //.await.unwrap();
             }
         });
     });
     process_receiver.attach(
         None,
-        glib::clone!(@weak label, @weak start, @weak btn_thresh_test => @default-return Continue(false),
+        glib::clone!(@weak label, @weak start, @weak btn_thresh_test, @weak btn_analysis => @default-return Continue(false),
             move |proc_status| {
                 match &proc_status.status {
                     Some(TaskStatus::TaskPercentage(task_name, len, cnt)) => {
@@ -616,6 +614,7 @@ fn build_ui(application: &Application) {
                         start.set_sensitive(false);
                         cancel.set_sensitive(true);
                         btn_thresh_test.set_sensitive(false);
+                        btn_analysis.set_sensitive(false);
                     },
                     None => {
                         // label.set_visible(false);
@@ -624,6 +623,7 @@ fn build_ui(application: &Application) {
                         start.set_sensitive(true);
                         cancel.set_sensitive(false);
                         btn_thresh_test.set_sensitive(true);
+                        btn_analysis.set_sensitive(true);
                         label.set_label("Ready");
                     }
                 };
@@ -797,547 +797,7 @@ fn assemble_output_filename() -> Result<PathBuf> {
     Ok(output_path)
 }
 
-#[allow(dead_code)]
-fn picture_from_ser_file(file_path: &str) -> Result<Pixbuf> {
-    let ser_file = SerFile::load_ser(file_path).unwrap();
-    let first_image = ser_file.get_frame(0).unwrap();
-    ser_frame_to_picture(&first_image)
-}
 
-fn ser_frame_to_picture(ser_frame: &SerFrame) -> Result<Pixbuf> {
-    image_to_picture(&ser_frame.buffer)
-}
 
-fn image_to_picture(image: &Image) -> Result<Pixbuf> {
-    let mut copied = image.clone();
-    copied.normalize_to_8bit();
 
-    let pix = Pixbuf::new(
-        Colorspace::Rgb,
-        false,
-        8,
-        copied.width as i32,
-        copied.height as i32,
-    )
-    .unwrap();
 
-    iproduct!(0..copied.height, 0..copied.width).for_each(|(y, x)| {
-        let (r, g, b) = if copied.num_bands() == 1 {
-            (
-                copied.get_band(0).get(x, y),
-                copied.get_band(0).get(x, y),
-                copied.get_band(0).get(x, y),
-            )
-        } else {
-            (
-                copied.get_band(0).get(x, y),
-                copied.get_band(1).get(x, y),
-                copied.get_band(2).get(x, y),
-            )
-        };
-        pix.put_pixel(x as u32, y as u32, r as u8, g as u8, b as u8, 255);
-    });
-    Ok(pix)
-}
-
-#[allow(dead_code)]
-fn imagebuffer_to_picture(buffer: &ImageBuffer) -> Result<Pixbuf> {
-    let mut copied = buffer.clone();
-    copied.normalize_mut(0.0, 255.0);
-
-    let pix = Pixbuf::new(
-        Colorspace::Rgb,
-        false,
-        8,
-        copied.width as i32,
-        copied.height as i32,
-    )
-    .unwrap();
-
-    iproduct!(0..copied.height, 0..copied.width).for_each(|(y, x)| {
-        let v = copied.get(x, y);
-        pix.put_pixel(x as u32, y as u32, v as u8, v as u8, v as u8, 255);
-    });
-    Ok(pix)
-}
-
-macro_rules! p2s {
-    ($pb:expr) => {
-        if let Some(pb) = &$pb {
-            Some(pb.as_os_str().to_str().unwrap().to_string().to_owned())
-        } else {
-            None
-        }
-    };
-}
-
-fn build_solhat_parameters() -> Result<ProcessParameters> {
-    let state = STATE.lock().unwrap();
-
-    if state.params.light.is_none() {
-        return Err(anyhow!("No light input identified"));
-    }
-    Ok(ProcessParameters {
-        input_files: vec![p2s!(state.params.light).unwrap()],
-        obj_detection_threshold: state.params.obj_detection_threshold,
-        obs_latitude: state.params.obs_latitude,
-        obs_longitude: state.params.obs_longitude,
-        target: state.params.target,
-        crop_width: None,
-        crop_height: None,
-        max_frames: Some(state.params.max_frames),
-        min_sigma: Some(state.params.min_sigma),
-        max_sigma: Some(state.params.max_sigma),
-        top_percentage: Some(state.params.top_percentage),
-        drizzle_scale: state.params.drizzle_scale,
-        initial_rotation: 0.0,
-        flat_inputs: p2s!(state.params.flat),
-        dark_inputs: p2s!(state.params.dark),
-        darkflat_inputs: p2s!(state.params.darkflat),
-        bias_inputs: p2s!(state.params.bias),
-        hot_pixel_map: p2s!(state.params.hot_pixel_map),
-        analysis_window_size: state.params.analysis_window_size,
-    })
-}
-
-fn build_solhat_context(sender: &Sender<TaskStatusContainer>) -> Result<ProcessContext> {
-    let params = build_solhat_parameters()?;
-
-    set_task_status(sender, "Processing Master Flat", 0, 0);
-    let master_flat = if let Some(inputs) = &params.flat_inputs {
-        info!("Processing master flat...");
-        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
-    } else {
-        CalibrationImage::new_empty()
-    };
-
-    check_cancel_status(sender);
-
-    set_task_status(sender, "Processing Master Dark Flat", 0, 0);
-    let master_darkflat = if let Some(inputs) = &params.darkflat_inputs {
-        info!("Processing master dark flat...");
-        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
-    } else {
-        CalibrationImage::new_empty()
-    };
-
-    check_cancel_status(sender);
-
-    set_task_status(sender, "Processing Master Dark", 0, 0);
-    let master_dark = if let Some(inputs) = &params.dark_inputs {
-        info!("Processing master dark...");
-        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
-    } else {
-        CalibrationImage::new_empty()
-    };
-
-    check_cancel_status(sender);
-
-    set_task_status(sender, "Processing Master Bias", 0, 0);
-    let master_bias = if let Some(inputs) = &params.bias_inputs {
-        info!("Processing master bias...");
-        CalibrationImage::new_from_file(inputs, ComputeMethod::Mean)?
-    } else {
-        CalibrationImage::new_empty()
-    };
-
-    check_cancel_status(sender);
-
-    info!("Creating process context struct");
-    let context = ProcessContext::create_with_calibration_frames(
-        &params,
-        master_flat,
-        master_darkflat,
-        master_dark,
-        master_bias,
-    )?;
-
-    Ok(context)
-}
-
-pub fn check_cancel_status(sender: &Sender<TaskStatusContainer>) {
-    if is_cancel_requested() {
-        set_task_cancelled();
-        set_task_completed(sender);
-        reset_cancel_status();
-        warn!("Task cancellation request detected. Stopping progress");
-        panic!("Cancelling!");
-    }
-}
-
-lazy_static! {
-    // NOTE: Concurrent processing threads will stomp on each other, but at least
-    // they'll do it in proper turn.  Also, this is stupid and can't stay this way.
-    static ref COUNTER: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
-}
-
-async fn run_async(master_sender: Sender<TaskStatusContainer>) -> Result<()> {
-    info!("Async task started");
-
-    let output_filename = assemble_output_filename()?;
-    // let params = build_solhat_parameters();
-    let mut context = build_solhat_context(&master_sender)?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-
-    check_cancel_status(&master_sender);
-    let frame_count = context.frame_records.len();
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
-    context.frame_records = frame_offset_analysis(&context, move |_fr| {
-        info!("frame_offset_analysis(): Frame processed.");
-        check_cancel_status(&sender);
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
-    })?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-    check_cancel_status(&master_sender);
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
-    context.frame_records = frame_sigma_analysis_window_size(
-        &context,
-        context.parameters.analysis_window_size,
-        move |fr| {
-            info!(
-                "frame_sigma_analysis(): Frame processed with sigma {}",
-                fr.sigma
-            );
-            check_cancel_status(&sender);
-
-            let mut c = COUNTER.lock().unwrap();
-            *c += 1;
-            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
-        },
-    )?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    check_cancel_status(&master_sender);
-    set_task_status(&sender, "Applying Frame Limits", frame_count, 0);
-    context.frame_records = frame_limit_determinate(&context, move |_fr| {
-        info!("frame_limit_determinate(): Frame processed.");
-        check_cancel_status(&sender);
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(&sender, "Applying Frame Limits", frame_count, *c)
-    })?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    check_cancel_status(&master_sender);
-    set_task_status(
-        &sender,
-        "Computing Parallactic Angle Rotations",
-        frame_count,
-        0,
-    );
-    context.frame_records = frame_rotation_analysis(&context, move |fr| {
-        info!(
-            "Rotation for frame is {} degrees",
-            fr.computed_rotation.to_degrees()
-        );
-        check_cancel_status(&sender);
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(
-            &sender,
-            "Computing Parallactic Angle Rotations",
-            frame_count,
-            *c,
-        )
-    })?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-
-    if context.frame_records.is_empty() {
-        println!("Zero frames to stack. Cannot continue");
-    } else {
-        let frame_count = context.frame_records.len();
-        *COUNTER.lock().unwrap() = 0;
-        let sender = master_sender.clone();
-        check_cancel_status(&master_sender);
-        set_task_status(&sender, "Stacking", frame_count, 0);
-        let drizzle_output = process_frame_stacking(&context, move |_fr| {
-            info!("process_frame_stacking(): Frame processed.");
-            check_cancel_status(&sender);
-
-            let mut c = COUNTER.lock().unwrap();
-            *c += 1;
-            set_task_status(&sender, "Stacking", frame_count, *c)
-        })?;
-
-        check_cancel_status(&master_sender);
-        set_task_status(&master_sender, "Finalizing", 0, 0);
-        let mut stacked_buffer = drizzle_output.get_finalized().unwrap();
-
-        // Let the user know some stuff...
-        let (stackmin, stackmax) = stacked_buffer.get_min_max_all_channel();
-        info!(
-            "    Stack Min/Max : {}, {} ({} images)",
-            stackmin,
-            stackmax,
-            context.frame_records.len()
-        );
-
-        if get_state_param!(decorrelated_colors) {
-            stacked_buffer.normalize_to_16bit_decorrelated();
-        } else {
-            stacked_buffer.normalize_to_16bit();
-        }
-
-        info!(
-            "Final image size: {}, {}",
-            stacked_buffer.width, stacked_buffer.height
-        );
-
-        // Save finalized image to disk
-        set_task_status(&master_sender, "Saving", 0, 0);
-        stacked_buffer.save(output_filename.to_string_lossy().as_ref())?;
-
-        // The user will likely never see this actually appear on screen
-        set_task_status(&master_sender, "Done", 1, 1);
-    }
-
-    set_task_completed(&master_sender);
-
-    Ok(())
-}
-
-///////////////////////////////////////////////////////
-/// Threshold Testing
-///////////////////////////////////////////////////////
-
-fn run_thresh_test(master_sender: Sender<TaskStatusContainer>) -> Result<Image> {
-    set_task_status(&master_sender, "Processing Threshold Test", 2, 1);
-    let context = ProcessContext::create_with_calibration_frames(
-        &build_solhat_parameters()?,
-        CalibrationImage::new_empty(),
-        CalibrationImage::new_empty(),
-        CalibrationImage::new_empty(),
-        CalibrationImage::new_empty(),
-    )?;
-
-    let first_frame = context.frame_records[0].get_frame(&context)?;
-    let result = compute_rgb_threshtest_image(
-        &first_frame.buffer,
-        context.parameters.obj_detection_threshold as f32,
-    );
-
-    set_task_completed(&master_sender);
-    Ok(result)
-}
-
-///////////////////////////////////////////////////////
-/// Sigma Anaysis
-///////////////////////////////////////////////////////
-
-struct AnalysisRange {
-    min: f64,
-    max: f64,
-}
-
-struct AnalysisSeries {
-    sigma_list: Vec<f64>,
-}
-
-impl AnalysisSeries {
-    pub fn sorted_list(&self) -> Vec<f64> {
-        let mut sorted = self.sigma_list.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        sorted.reverse();
-        sorted
-    }
-
-    pub fn minmax(&self) -> AnalysisRange {
-        let mut mn = std::f64::MAX;
-        let mut mx = std::f64::MIN;
-
-        self.sigma_list.iter().for_each(|s| {
-            mn = min!(*s, mn);
-            mx = max!(*s, mx);
-        });
-
-        AnalysisRange { min: mn, max: mx }
-    }
-
-    pub fn sma(&self, window: usize) -> Vec<f64> {
-        let half_win = window / 2;
-        let mut sma: Vec<f64> = vec![];
-        (0..self.sigma_list.len()).into_iter().for_each(|i| {
-            let start = if i <= half_win { 0 } else { i - half_win };
-
-            let end = if i + half_win <= self.sigma_list.len() {
-                i + half_win
-            } else {
-                self.sigma_list.len()
-            };
-            let s = self.sigma_list[start..end].iter().sum::<f64>() / (end - start) as f64;
-            sma.push(s);
-        });
-        sma
-    }
-}
-
-fn run_sigma_analysis(master_sender: Sender<TaskStatusContainer>) -> Result<AnalysisSeries> {
-    let mut context = ProcessContext::create_with_calibration_frames(
-        &build_solhat_parameters()?,
-        CalibrationImage::new_empty(),
-        CalibrationImage::new_empty(),
-        CalibrationImage::new_empty(),
-        CalibrationImage::new_empty(),
-    )?;
-
-
-    check_cancel_status(&master_sender);
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
-    context.frame_records = frame_offset_analysis(&context, move |_fr| {
-        info!("frame_offset_analysis(): Frame processed.");
-        check_cancel_status(&sender);
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
-    })?;
-
-    check_cancel_status(&master_sender);
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
-    let frame_records = frame_sigma_analysis_window_size(
-        &context,
-        context.parameters.analysis_window_size,
-        move |fr| {
-            info!(
-                "frame_sigma_analysis(): Frame processed with sigma {}",
-                fr.sigma
-            );
-            check_cancel_status(&sender);
-
-            let mut c = COUNTER.lock().unwrap();
-            *c += 1;
-            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
-        },
-    )?;
-
-    let mut sigma_list: Vec<f64> = vec![];
-    frame_records
-        .iter()
-        .filter(|fr| {
-            let min_sigma = context.parameters.min_sigma.unwrap_or(std::f64::MIN);
-            let max_sigma = context.parameters.max_sigma.unwrap_or(std::f64::MAX);
-            fr.sigma >= min_sigma && fr.sigma <= max_sigma
-        })
-        .for_each(|fr| {
-            sigma_list.push(fr.sigma);
-        });
-
-    set_task_completed(&master_sender);
-
-    Ok(AnalysisSeries {
-        sigma_list: sigma_list,
-    })
-}
-
-// Based on https://github.com/askanium/rustplotlib/blob/master/examples/line_series_chart.rs
-fn create_chart(data: &AnalysisSeries, width:isize, height:isize) -> Result<String> {
-    let (top, right, bottom, left) = (0, 40, 50, 60);
-
-    let x = ScaleLinear::new()
-        .set_domain(vec![0_f32, data.sigma_list.len() as f32])
-        .set_range(vec![0, width - left - right]);
-
-    let rng = data.minmax();
-
-    let y = ScaleLinear::new()
-        .set_domain(vec![rng.min as f32, rng.max as f32])
-        .set_range(vec![height - top - bottom, 0]);
-
-    let line_data_1: Vec<(f32, f32)> = data
-        .sorted_list()
-        .iter()
-        .enumerate()
-        .map(|(i, s)| (i as f32, *s as f32))
-        .collect();
-
-    let line_data_2: Vec<(f32, f32)> = data
-        .sma(data.sigma_list.len() / 20)
-        .iter()
-        .enumerate()
-        .map(|(i, s)| (i as f32, *s as f32))
-        .collect();
-
-    let line_data_3: Vec<(f32, f32)> = data
-        .sigma_list
-        .iter()
-        .enumerate()
-        .map(|(i, s)| (i as f32, *s as f32))
-        .collect();
-
-    let line_view_1 = LineSeriesView::new()
-        .set_x_scale(&x)
-        .set_y_scale(&y)
-        .set_marker_type(MarkerType::X)
-        .set_label_visibility(false)
-        .set_marker_visibility(false)
-        .set_colors(Color::from_vec_of_hex_strings(vec!["#AAAAAA"]))
-        .load_data(&line_data_1)
-        .unwrap();
-
-    let line_view_2 = LineSeriesView::new()
-        .set_x_scale(&x)
-        .set_y_scale(&y)
-        .set_marker_type(MarkerType::X)
-        .set_label_visibility(false)
-        .set_marker_visibility(false)
-        .set_colors(Color::from_vec_of_hex_strings(vec!["#FF4700"]))
-        .load_data(&line_data_2)
-        .unwrap();
-
-    let line_view_3 = LineSeriesView::new()
-        .set_x_scale(&x)
-        .set_y_scale(&y)
-        .set_marker_type(MarkerType::X)
-        .set_label_visibility(false)
-        .set_marker_visibility(false)
-        .set_colors(Color::from_vec_of_hex_strings(vec!["#333333"]))
-        .load_data(&line_data_3)
-        .unwrap();
-
-    // Generate and save the chart.
-    let svg = Chart::new()
-        .set_width(width)
-        .set_height(height)
-        .set_margins(top, right, bottom, left)
-        .add_view(&line_view_3)
-        .add_view(&line_view_2)
-        .add_view(&line_view_1)
-        .add_axis_bottom(&x)
-        .add_axis_left(&y)
-        .add_left_axis_label("Sigma Quality")
-        .add_bottom_axis_label("Frame #")
-        .to_string()
-        .unwrap();
-    Ok(svg)
-}

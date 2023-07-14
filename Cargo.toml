@@ -20,8 +20,8 @@ fastblur = "0.1.1"
 rayon = "1.5.3"
 sciimg = {git = "https://github.com/MarsRaw/sciimg.git", branch = "kmgill_develop", features = ["rayon"]}
 # sciimg = {path = "../sciimg"}
-solhat = {git = "https://github.com/kmgill/solhat.git"}
-# solhat = {path = "../solhat"}
+# solhat = {git = "https://github.com/kmgill/solhat.git"}
+solhat = {path = "../solhat"}
 stump = {git = "https://github.com/MarsRaw/stump.git"}
 toml = "0.7.4"
 serde = { version = "1.0.125", features = ["derive"] }
