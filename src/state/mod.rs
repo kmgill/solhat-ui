@@ -157,10 +157,22 @@ macro_rules! set_state_ui {
     };
 }
 
+macro_rules! get_state_ui {
+    ($prop:ident) => {
+        crate::state::STATE.lock().unwrap().ui.$prop.to_owned()
+    };
+}
+
 #[allow(unused_macros)]
 macro_rules! clear_last_opened_folder {
     () => {
         set_state_ui!(last_opened_folder, None);
+    };
+}
+
+macro_rules! get_last_opened_folder {
+    () => {
+        get_state_ui!(last_opened_folder)
     };
 }
 

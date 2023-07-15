@@ -1,6 +1,9 @@
 use anyhow::Result;
 use gtk::glib::Sender;
 use solhat::anaysis::frame_sigma_analysis_window_size;
+use solhat::context::ProcessContext;
+use solhat::drizzle::BilinearDrizzle;
+use solhat::framerecord::FrameRecord;
 use solhat::limiting::frame_limit_determinate;
 use solhat::offsetting::frame_offset_analysis;
 use solhat::rotation::frame_rotation_analysis;
@@ -12,107 +15,33 @@ use crate::cancel::*;
 use crate::state::*;
 use crate::taskstatus::*;
 
-lazy_static! {
-    // NOTE: Concurrent processing threads will stomp on each other, but at least
-    // they'll do it in proper turn.  Also, this is stupid and can't stay this way.
-    static ref COUNTER: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
-}
-
 pub async fn run_async(
     master_sender: Sender<TaskStatusContainer>,
     output_filename: PathBuf,
 ) -> Result<()> {
     info!("Async task started");
 
-    // let output_filename = assemble_output_filename()?;
-    // let params = build_solhat_parameters();
     let mut context = build_solhat_context(&master_sender)?;
 
     /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
 
-    check_cancel_status(&master_sender)?;
-    let frame_count = context.frame_records.len();
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
-    context.frame_records = frame_offset_analysis(&context, move |_fr| {
-        info!("frame_offset_analysis(): Frame processed.");
-        // check_cancel_status(&sender);
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
-    })?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-    check_cancel_status(&master_sender)?;
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
-    context.frame_records = frame_sigma_analysis_window_size(
-        &context,
-        context.parameters.analysis_window_size,
-        move |fr| {
-            info!(
-                "frame_sigma_analysis(): Frame processed with sigma {}",
-                fr.sigma
-            );
-            // check_cancel_status(&sender);
-
-            let mut c = COUNTER.lock().unwrap();
-            *c += 1;
-            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
-        },
-    )?;
+    context.frame_records = center_of_mass_offset(&context, master_sender.clone())?;
 
     /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
 
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    check_cancel_status(&master_sender)?;
-    set_task_status(&sender, "Applying Frame Limits", frame_count, 0);
-    context.frame_records = frame_limit_determinate(&context, move |_fr| {
-        info!("frame_limit_determinate(): Frame processed.");
-        // check_cancel_status(&sender);
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(&sender, "Applying Frame Limits", frame_count, *c)
-    })?;
+    context.frame_records = frame_sigma_analysis(&context, master_sender.clone())?;
 
     /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
 
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    check_cancel_status(&master_sender)?;
-    set_task_status(
-        &sender,
-        "Computing Parallactic Angle Rotations",
-        frame_count,
-        0,
-    );
-    context.frame_records = frame_rotation_analysis(&context, move |fr| {
-        info!(
-            "Rotation for frame is {} degrees",
-            fr.computed_rotation.to_degrees()
-        );
-        // check_cancel_status(&sender);
+    context.frame_records = frame_limiting(&context, master_sender.clone())?;
 
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(
-            &sender,
-            "Computing Parallactic Angle Rotations",
-            frame_count,
-            *c,
-        )
-    })?;
+    /////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////
+
+    context.frame_records = frame_rotation(&context, master_sender.clone())?;
 
     /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
@@ -120,19 +49,7 @@ pub async fn run_async(
     if context.frame_records.is_empty() {
         println!("Zero frames to stack. Cannot continue");
     } else {
-        let frame_count = context.frame_records.len();
-        *COUNTER.lock().unwrap() = 0;
-        let sender = master_sender.clone();
-        check_cancel_status(&master_sender)?;
-        set_task_status(&sender, "Stacking", frame_count, 0);
-        let drizzle_output = process_frame_stacking(&context, move |_fr| {
-            info!("process_frame_stacking(): Frame processed.");
-            // check_cancel_status(&sender);
-
-            let mut c = COUNTER.lock().unwrap();
-            *c += 1;
-            set_task_status(&sender, "Stacking", frame_count, *c)
-        })?;
+        let drizzle_output = drizzle_stacking(&context, master_sender.clone())?;
 
         check_cancel_status(&master_sender)?;
         set_task_status(&master_sender, "Finalizing", 0, 0);
@@ -169,4 +86,145 @@ pub async fn run_async(
     set_task_completed(&master_sender);
 
     Ok(())
+}
+
+fn center_of_mass_offset(
+    context: &ProcessContext,
+    sender: Sender<TaskStatusContainer>,
+) -> Result<Vec<FrameRecord>> {
+    check_cancel_status(&sender)?;
+
+    let frame_count = context.frame_records.len();
+
+    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
+
+    let counter = Arc::new(Mutex::new(0));
+
+    let frame_records = frame_offset_analysis(&context, move |_fr| {
+        info!("frame_offset_analysis(): Frame processed.");
+
+        // check_cancel_status(&sender);
+
+        let mut c = counter.lock().unwrap();
+        *c += 1;
+
+        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
+    })?;
+    Ok(frame_records)
+}
+
+fn frame_sigma_analysis(
+    context: &ProcessContext,
+    sender: Sender<TaskStatusContainer>,
+) -> Result<Vec<FrameRecord>> {
+    check_cancel_status(&sender)?;
+
+    let frame_count = context.frame_records.len();
+
+    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
+
+    let counter = Arc::new(Mutex::new(0));
+
+    let frame_records = frame_sigma_analysis_window_size(
+        &context,
+        context.parameters.analysis_window_size,
+        move |fr| {
+            info!(
+                "frame_sigma_analysis(): Frame processed with sigma {}",
+                fr.sigma
+            );
+            // check_cancel_status(&sender);
+
+            let mut c = counter.lock().unwrap();
+            *c += 1;
+            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
+        },
+    )?;
+
+    Ok(frame_records)
+}
+
+fn frame_limiting(
+    context: &ProcessContext,
+    sender: Sender<TaskStatusContainer>,
+) -> Result<Vec<FrameRecord>> {
+    check_cancel_status(&sender)?;
+
+    let frame_count = context.frame_records.len();
+
+    set_task_status(&sender, "Applying Frame Limits", frame_count, 0);
+
+    let counter = Arc::new(Mutex::new(0));
+
+    let frame_records = frame_limit_determinate(&context, move |_fr| {
+        info!("frame_limit_determinate(): Frame processed.");
+        // check_cancel_status(&sender);
+
+        let mut c = counter.lock().unwrap();
+        *c += 1;
+        set_task_status(&sender, "Applying Frame Limits", frame_count, *c)
+    })?;
+
+    Ok(frame_records)
+}
+
+fn frame_rotation(
+    context: &ProcessContext,
+    sender: Sender<TaskStatusContainer>,
+) -> Result<Vec<FrameRecord>> {
+    check_cancel_status(&sender)?;
+
+    let frame_count = context.frame_records.len();
+
+    set_task_status(
+        &sender,
+        "Computing Parallactic Angle Rotations",
+        frame_count,
+        0,
+    );
+
+    let counter = Arc::new(Mutex::new(0));
+
+    let frame_records = frame_rotation_analysis(&context, move |fr| {
+        info!(
+            "Rotation for frame is {} degrees",
+            fr.computed_rotation.to_degrees()
+        );
+        // check_cancel_status(&sender);
+
+        let mut c = counter.lock().unwrap();
+        *c += 1;
+        set_task_status(
+            &sender,
+            "Computing Parallactic Angle Rotations",
+            frame_count,
+            *c,
+        )
+    })?;
+
+    Ok(frame_records)
+}
+
+fn drizzle_stacking(
+    context: &ProcessContext,
+    sender: Sender<TaskStatusContainer>,
+) -> Result<BilinearDrizzle> {
+    check_cancel_status(&sender)?;
+
+    let frame_count = context.frame_records.len();
+
+    set_task_status(&sender, "Stacking", frame_count, 0);
+
+    let counter = Arc::new(Mutex::new(0));
+
+    let drizzle_output = process_frame_stacking(&context, move |_fr| {
+        info!("process_frame_stacking(): Frame processed.");
+        // check_cancel_status(&sender);
+
+        let mut c = counter.lock().unwrap();
+        *c += 1;
+        set_task_status(&sender, "Stacking", frame_count, *c)
+    })?;
+
+    Ok(drizzle_output)
 }

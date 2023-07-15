@@ -29,6 +29,7 @@ use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, Ch
 use solhat::drizzle::Scale;
 use solhat::target::Target;
 use std::ffi::OsStr;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::thread;
 use solhat::ser::SerFile;
@@ -148,7 +149,14 @@ macro_rules! bind_open_clear {
         let b = $builder.clone();
         btn_open.connect_clicked(glib::clone!(@strong label, @weak win, @weak b as builder => move |_| {
             debug!("Opening file");
-            $opener("Open Ser File", &win,glib::clone!( @weak label => move|f| {
+
+            let last_opened = if let Some(p) = get_state_param!($state_prop) {
+                Some(p)
+            } else {
+                get_last_opened_folder!()
+            };
+
+            $opener("Open Ser File", &win,last_opened, glib::clone!( @weak label => move|f| {
                 debug!("Opened: {:?}", f);
                 label.set_label(f.file_name().unwrap().to_str().unwrap());
                 set_state_param!($state_prop, Some(f.to_owned()));
@@ -339,7 +347,7 @@ fn build_ui(application: &Application) {
     btn_output_open.connect_clicked(
         glib::clone!(@strong lbl_output_folder, @weak window => move |_| {
             debug!("Opening file");
-            open_folder("Open Ser File", &window,glib::clone!( @weak lbl_output_folder, @weak b as builder => move|f| {
+            open_folder("Select Output Folder", &window, get_last_opened_folder!(), glib::clone!( @weak lbl_output_folder, @weak b as builder => move|f| {
                 debug!("Opened: {:?}", f);
                 lbl_output_folder.set_label(f.to_str().unwrap());
                 set_state_param!(output_dir, Some(f.to_owned()));
@@ -689,18 +697,18 @@ fn build_ui(application: &Application) {
     window.present();
 }
 
-fn open_ser_file<F>(title: &str, window: &ApplicationWindow, callback: F)
+fn open_ser_file<F>(title: &str, window: &ApplicationWindow, initial_file:Option<PathBuf>,callback: F)
 where
     F: Fn(PathBuf) + 'static,
 {
-    open_file(title, window, "video/ser", "SER", callback);
+    open_file(title, window, "video/ser", "SER", initial_file, callback);
 }
 
-fn open_toml_file<F>(title: &str, window: &ApplicationWindow, callback: F)
+fn open_toml_file<F>(title: &str, window: &ApplicationWindow, initial_file:Option<PathBuf>,callback: F)
 where
     F: Fn(PathBuf) + 'static,
 {
-    open_file(title, window, "application/toml", "toml", callback);
+    open_file(title, window, "application/toml", "toml", initial_file, callback);
 }
 
 fn open_file<F>(
@@ -708,10 +716,18 @@ fn open_file<F>(
     window: &ApplicationWindow,
     mimetype: &str,
     mimename: &str,
+    initial_file:Option<PathBuf>,
     callback: F,
 ) where
     F: Fn(PathBuf) + 'static,
 {
+    let initial_file = if let Some(f) = initial_file {
+        gtk::gio::File::for_path(f)
+    } else {
+        gtk::gio::File::for_path(dirs::home_dir().unwrap())
+    };
+
+
     let filters = gio::ListStore::new(Type::OBJECT);
     let ser_filter = gtk::FileFilter::new();
     ser_filter.add_mime_type(mimetype);
@@ -723,6 +739,7 @@ fn open_file<F>(
         .accept_label("Open")
         .modal(true)
         .filters(&filters)
+        .initial_file(&initial_file)
         .build();
 
     dialog.open(Some(window), gio::Cancellable::NONE, move |file| {
@@ -733,15 +750,26 @@ fn open_file<F>(
     });
 }
 
-fn open_folder<F>(title: &str, window: &ApplicationWindow, callback: F)
+fn open_folder<F>(title: &str, window: &ApplicationWindow, initial_path: Option<PathBuf>, callback: F)
 where
     F: Fn(PathBuf) + 'static,
 {
+    println!("Folder: {:?}", initial_path);
+    let initial_folder = if let Some(f) = initial_path {
+        gtk::gio::File::for_path(f)
+    } else {
+        gtk::gio::File::for_path(dirs::home_dir().unwrap())
+    };
+
+    
+
     let dialog = gtk::FileDialog::builder()
         .title(title)
         .accept_label("Open")
         .modal(true)
+        .initial_folder(&initial_folder)
         .build();
+    dialog.set_initial_folder(Some(&initial_folder));
     dialog.select_folder(Some(window), gio::Cancellable::NONE, move |file| {
         if let Ok(file) = file {
             let filename = file.path().expect("Couldn't get file path");
