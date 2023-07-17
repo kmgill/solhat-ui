@@ -378,11 +378,13 @@ fn build_ui(application: &Application) {
     match STATE.lock().unwrap().params.target {
         Target::Sun => combo_target.set_active_id(Some("0")),
         Target::Moon => combo_target.set_active_id(Some("1")),
+        Target::None => combo_target.set_active_id(Some("2")),
     };
     combo_target.connect_changed(glib::clone!(@weak window, @weak b as builder => move |e| {
         set_state_param!(target, match e.active_id().unwrap().to_string().as_str() {
             "0" => Target::Sun,
             "1" => Target::Moon,
+            "2" => Target::None,
             _ => panic!("Invalid target selected")
         });
         update_output_filename!(builder);

@@ -616,6 +616,7 @@
                     <items>
                       <item id="0">Sun</item>
                       <item id="1">Moon</item>
+                      <item id="2">None / Equatorial Mount</item>
                     </items>
                     <layout>
                       <property name="column">1</property>
