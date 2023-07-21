@@ -140,7 +140,7 @@ macro_rules! bind_open_clear {
         let btn_clear: Button = bind_object!($builder, $clear_id);
         let label: Label = bind_object!($builder, $label_id);
 
-        if let Some(prop) = &STATE.lock().unwrap().params.$state_prop {
+        if let Some(prop) = get_state_param!($state_prop) {
             label.set_label(prop.file_name().unwrap().clone().to_str().unwrap());
         }
 
@@ -149,12 +149,15 @@ macro_rules! bind_open_clear {
         let b = $builder.clone();
         btn_open.connect_clicked(glib::clone!(@strong label, @weak win, @weak b as builder => move |_| {
             debug!("Opening file");
-
-            let last_opened = if let Some(p) = get_state_param!($state_prop) {
+            
+            let p = get_state_param!($state_prop);
+            let last_opened = if let Some(p) = p {
                 Some(p)
             } else {
                 get_last_opened_folder!()
             };
+
+            info!("Last opened folder: {:?}", last_opened);
 
             $opener("Open Ser File", &win,last_opened, glib::clone!( @weak label => move|f| {
                 debug!("Opened: {:?}", f);
