@@ -100,7 +100,7 @@ fn center_of_mass_offset(
 
     let counter = Arc::new(Mutex::new(0));
 
-    let frame_records = frame_offset_analysis(&context, move |_fr| {
+    let frame_records = frame_offset_analysis(context, move |_fr| {
         info!("frame_offset_analysis(): Frame processed.");
 
         // check_cancel_status(&sender);
@@ -126,7 +126,7 @@ fn frame_sigma_analysis(
     let counter = Arc::new(Mutex::new(0));
 
     let frame_records = frame_sigma_analysis_window_size(
-        &context,
+        context,
         context.parameters.analysis_window_size,
         move |fr| {
             info!(
@@ -156,7 +156,7 @@ fn frame_limiting(
 
     let counter = Arc::new(Mutex::new(0));
 
-    let frame_records = frame_limit_determinate(&context, move |_fr| {
+    let frame_records = frame_limit_determinate(context, move |_fr| {
         info!("frame_limit_determinate(): Frame processed.");
         // check_cancel_status(&sender);
 
@@ -185,7 +185,7 @@ fn frame_rotation(
 
     let counter = Arc::new(Mutex::new(0));
 
-    let frame_records = frame_rotation_analysis(&context, move |fr| {
+    let frame_records = frame_rotation_analysis(context, move |fr| {
         info!(
             "Rotation for frame is {} degrees",
             fr.computed_rotation.to_degrees()
@@ -217,7 +217,7 @@ fn drizzle_stacking(
 
     let counter = Arc::new(Mutex::new(0));
 
-    let drizzle_output = process_frame_stacking(&context, move |_fr| {
+    let drizzle_output = process_frame_stacking(context, move |_fr| {
         info!("process_frame_stacking(): Frame processed.");
         // check_cancel_status(&sender);
 

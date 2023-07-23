@@ -29,7 +29,6 @@ use gtk::{glib, AlertDialog, Application, ApplicationWindow, Builder, Button, Ch
 use solhat::drizzle::Scale;
 use solhat::target::Target;
 use std::ffi::OsStr;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::thread;
 use solhat::ser::SerFile;
@@ -159,7 +158,7 @@ macro_rules! bind_open_clear {
 
             info!("Last opened folder: {:?}", last_opened);
 
-            $opener("Open Ser File", &win,last_opened, glib::clone!( @weak label => move|f| {
+            $opener("Open File", &win,last_opened, glib::clone!( @weak label => move|f| {
                 debug!("Opened: {:?}", f);
                 label.set_label(f.file_name().unwrap().to_str().unwrap());
                 set_state_param!($state_prop, Some(f.to_owned()));
@@ -706,20 +705,20 @@ fn open_ser_file<F>(title: &str, window: &ApplicationWindow, initial_file:Option
 where
     F: Fn(PathBuf) + 'static,
 {
-    open_file(title, window, "video/ser", "SER", initial_file, callback);
+    open_file(title, window, "*.ser", "SER", initial_file, callback);
 }
 
 fn open_toml_file<F>(title: &str, window: &ApplicationWindow, initial_file:Option<PathBuf>,callback: F)
 where
     F: Fn(PathBuf) + 'static,
 {
-    open_file(title, window, "application/toml", "toml", initial_file, callback);
+    open_file(title, window, "*.toml", "toml", initial_file, callback);
 }
 
 fn open_file<F>(
     title: &str,
     window: &ApplicationWindow,
-    mimetype: &str,
+    filter: &str,
     mimename: &str,
     initial_file:Option<PathBuf>,
     callback: F,
@@ -735,8 +734,9 @@ fn open_file<F>(
 
     let filters = gio::ListStore::new(Type::OBJECT);
     let ser_filter = gtk::FileFilter::new();
-    ser_filter.add_mime_type(mimetype);
+    // ser_filter.add_mime_type(mimetype);
     ser_filter.set_name(Some(mimename));
+    ser_filter.add_pattern(filter);
     filters.append(&ser_filter);
 
     let dialog = gtk::FileDialog::builder()

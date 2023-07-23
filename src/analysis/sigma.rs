@@ -56,7 +56,7 @@ impl AnalysisSeries {
     pub fn sma(&self, window: usize) -> Vec<f64> {
         let half_win = window / 2;
         let mut sma: Vec<f64> = vec![];
-        (0..self.sigma_list.len()).into_iter().for_each(|i| {
+        (0..self.sigma_list.len()).for_each(|i| {
             let start = if i <= half_win { 0 } else { i - half_win };
 
             let end = if i + half_win <= self.sigma_list.len() {
@@ -146,7 +146,7 @@ pub fn run_sigma_analysis(
     set_task_completed(&master_sender);
 
     Ok(AnalysisSeries {
-        sigma_list: sigma_list,
+        sigma_list,
     })
 }
 
