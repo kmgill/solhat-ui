@@ -1,11 +1,11 @@
 use anyhow::Result;
 use gtk::glib::Sender;
-use solhat::anaysis::frame_sigma_analysis_window_size;
+// use solhat::anaysis::frame_sigma_analysis_window_size;
 use solhat::context::ProcessContext;
 use solhat::drizzle::BilinearDrizzle;
 use solhat::framerecord::FrameRecord;
 use solhat::limiting::frame_limit_determinate;
-use solhat::offsetting::frame_offset_analysis;
+// use solhat::offsetting::frame_offset_analysis;
 use solhat::rotation::frame_rotation_analysis;
 use solhat::stacking::process_frame_stacking;
 use std::path::PathBuf;
@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use crate::cancel::*;
 use crate::state::*;
 use crate::taskstatus::*;
+use crate::analysis::sigma::frame_analysis_window_size;
 
 pub async fn run_async(
     master_sender: Sender<TaskStatusContainer>,
@@ -22,11 +23,6 @@ pub async fn run_async(
     info!("Async task started");
 
     let mut context = build_solhat_context(&master_sender)?;
-
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-
-    context.frame_records = center_of_mass_offset(&context, master_sender.clone())?;
 
     /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
@@ -88,30 +84,6 @@ pub async fn run_async(
     Ok(())
 }
 
-fn center_of_mass_offset(
-    context: &ProcessContext,
-    sender: Sender<TaskStatusContainer>,
-) -> Result<Vec<FrameRecord>> {
-    check_cancel_status(&sender)?;
-
-    let frame_count = context.frame_records.len();
-
-    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
-
-    let counter = Arc::new(Mutex::new(0));
-
-    let frame_records = frame_offset_analysis(context, move |_fr| {
-        info!("frame_offset_analysis(): Frame processed.");
-
-        // check_cancel_status(&sender);
-
-        let mut c = counter.lock().unwrap();
-        *c += 1;
-
-        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c)
-    })?;
-    Ok(frame_records)
-}
 
 fn frame_sigma_analysis(
     context: &ProcessContext,
@@ -121,11 +93,11 @@ fn frame_sigma_analysis(
 
     let frame_count = context.frame_records.len();
 
-    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
+    set_task_status(&sender, "Frame Analysis", frame_count, 0);
 
     let counter = Arc::new(Mutex::new(0));
 
-    let frame_records = frame_sigma_analysis_window_size(
+    let frame_records = frame_analysis_window_size(
         context,
         context.parameters.analysis_window_size,
         move |fr| {
@@ -137,7 +109,7 @@ fn frame_sigma_analysis(
 
             let mut c = counter.lock().unwrap();
             *c += 1;
-            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c)
+            set_task_status(&sender, "Frame Analysis", frame_count, *c)
         },
     )?;
 

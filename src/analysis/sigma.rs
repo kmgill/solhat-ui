@@ -1,12 +1,12 @@
 use anyhow::Result;
 use charts::{Chart, Color, LineSeriesView, MarkerType, ScaleLinear};
 use gtk::glib::Sender;
-use sciimg::{max, min};
-use solhat::anaysis::frame_sigma_analysis_window_size;
+use sciimg::{max, min, quality};
 use solhat::calibrationframe::CalibrationImage;
 use solhat::context::ProcessContext;
-use solhat::offsetting::frame_offset_analysis;
+use solhat::framerecord::FrameRecord;
 use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 
 use crate::cancel::{self, *};
 use crate::state::build_solhat_parameters;
@@ -79,7 +79,7 @@ pub fn run_sigma_analysis(
         Err(why) => return Err(cancel::TaskCompletion::Error(format!("Error: {:?}", why))),
     };
 
-    let mut context = match ProcessContext::create_with_calibration_frames(
+    let context = match ProcessContext::create_with_calibration_frames(
         &params,
         CalibrationImage::new_empty(),
         CalibrationImage::new_empty(),
@@ -94,25 +94,8 @@ pub fn run_sigma_analysis(
     let frame_count = context.frame_records.len();
     *COUNTER.lock().unwrap() = 0;
     let sender = master_sender.clone();
-    set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, 0);
-    context.frame_records = match frame_offset_analysis(&context, move |_fr| {
-        info!("frame_offset_analysis(): Frame processed.");
-
-        let mut c = COUNTER.lock().unwrap();
-        *c += 1;
-        set_task_status(&sender, "Computing Center-of-Mass Offsets", frame_count, *c);
-        // check_cancel_status(&sender)
-    }) {
-        Ok(frame_records) => frame_records,
-        Err(why) => return Err(cancel::TaskCompletion::Error(format!("Error: {:?}", why))),
-    };
-
-    check_cancel_status(&master_sender)?;
-    let frame_count = context.frame_records.len();
-    *COUNTER.lock().unwrap() = 0;
-    let sender = master_sender.clone();
-    set_task_status(&sender, "Frame Sigma Analysis", frame_count, 0);
-    let frame_records = match frame_sigma_analysis_window_size(
+    set_task_status(&sender, "Frame Analysis", frame_count, 0);
+    let frame_records = match frame_analysis_window_size(
         &context,
         context.parameters.analysis_window_size,
         move |fr| {
@@ -123,7 +106,7 @@ pub fn run_sigma_analysis(
 
             let mut c = COUNTER.lock().unwrap();
             *c += 1;
-            set_task_status(&sender, "Frame Sigma Analysis", frame_count, *c);
+            set_task_status(&sender, "Frame Analysis", frame_count, *c);
             // check_cancel_status(&sender)
         },
     ) {
@@ -148,6 +131,47 @@ pub fn run_sigma_analysis(
     Ok(AnalysisSeries {
         sigma_list,
     })
+}
+
+
+/// Combined method of center-of-mass and sigma analysis. This is to limit the number of
+/// frame reads from disk which are rather expensive in terms of CPU and time.
+pub fn frame_analysis_window_size<F>(
+    context: &ProcessContext,
+    window_size: usize,
+    on_frame_checked: F,
+) -> Result<Vec<FrameRecord>>
+where
+    F: Fn(&FrameRecord) + Send + Sync + 'static,
+{
+    let frame_records: Vec<FrameRecord> = context
+        .frame_records
+        .par_iter()
+        .map(|fr| {
+            let mut fr_copy = fr.clone();
+            let frame = fr.get_frame(context).expect("");
+
+            fr_copy.offset = frame
+                .buffer
+                .calc_center_of_mass_offset(context.parameters.obj_detection_threshold as f32, 0);
+
+            let x = frame.buffer.width / 2 + fr_copy.offset.h as usize;
+            let y = frame.buffer.height / 2 + fr_copy.offset.v as usize;
+
+            // If monochrome, this will perform the analysis on the only band. If RGB, we perform analysis
+            // on the red band.
+            fr_copy.sigma = quality::get_point_quality_estimation_on_buffer(
+                frame.buffer.get_band(0),
+                window_size,
+                x,
+                y,
+            ) as f64;
+
+            on_frame_checked(&fr_copy);
+            fr_copy
+        })
+        .collect();
+    Ok(frame_records)
 }
 
 // Based on https://github.com/askanium/rustplotlib/blob/master/examples/line_series_chart.rs
