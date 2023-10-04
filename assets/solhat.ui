@@ -776,6 +776,58 @@
                     </layout>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkCheckButton" id="chk_ldcorrection">
+                  <property name="label">Limb Darkening Correction</property>
+                    <property name="margin-bottom">1</property>
+                    <property name="margin-end">1</property>
+                    <property name="margin-start">1</property>
+                    <property name="margin-top">1</property>
+                    <property name="has-tooltip">true</property>
+                    <property name="tooltip-text">Correct the effect of limb darkening</property>
+                    <property name="halign">center</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">2</property>
+                      <property name="row">12</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Limb Darkening Coefficient:</property>
+                    <property name="margin-bottom">1</property>
+                    <property name="margin-end">1</property>
+                    <property name="margin-start">1</property>
+                    <property name="margin-top">1</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">13</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Solar Radius (pixels):</property>
+                    <property name="margin-bottom">1</property>
+                    <property name="margin-end">1</property>
+                    <property name="margin-start">1</property>
+                    <property name="margin-top">1</property>
+                    <property name="xalign">0.0</property>
+                    <layout>
+                      <property name="column">0</property>
+                      <property name="column-span">1</property>
+                      <property name="row">14</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
 
                 <child>
                   <object class="GtkBox">
@@ -1024,14 +1076,70 @@
                   </object>
                 </child>
 
+                <!-- Limb darkening correction input controls -->
+                <child>
+                  <object class="GtkSpinButton" id="spn_ldcorrect_coefficient">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_ldcorrect_coefficient">
+                        <property name="lower">0.0</property>
+                        <property name="page-increment">0.1</property>
+                        <property name="page-size">.1</property>
+                        <property name="step-increment">0.01</property>
+                        <property name="upper">1.0</property>
+                        <property name="value">0.56</property>
+                      </object>
+                    </property>
+                    <property name="climb-rate">0.01</property>
+                    <property name="digits">3</property>
+                    <property name="margin-bottom">1</property>
+                    <property name="margin-end">1</property>
+                    <property name="margin-start">1</property>
+                    <property name="margin-top">1</property>
+                    <property name="numeric">True</property>
+                    <property name="value">0.56</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">13</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
 
+                <child>
+                  <object class="GtkSpinButton" id="spn_solar_radius">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment" id="adj_solar_radius">
+                        <property name="lower">1.0</property>
+                        <property name="page-increment">10.0</property>
+                        <property name="page-size">10.0</property>
+                        <property name="step-increment">1.0</property>
+                        <property name="upper">10000.0</property>
+                        <property name="value">768</property>
+                      </object>
+                    </property>
+                    <property name="climb-rate">1.0</property>
+                    <property name="digits">0</property>
+                    <property name="margin-bottom">1</property>
+                    <property name="margin-end">1</property>
+                    <property name="margin-start">1</property>
+                    <property name="margin-top">1</property>
+                    <property name="numeric">True</property>
+                    <property name="value">768</property>
+                    <layout>
+                      <property name="column">1</property>
+                      <property name="column-span">1</property>
+                      <property name="row">14</property>
+                      <property name="row-span">1</property>
+                    </layout>
+                  </object>
+                </child>
 
 
               </object>
             </child>
 
-
-
+                
 
 
 

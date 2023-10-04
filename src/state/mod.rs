@@ -35,6 +35,9 @@ pub struct ParametersState {
     pub top_percentage: f64,
     pub decorrelated_colors: bool,
     pub analysis_window_size: usize,
+    pub ld_correction: bool,
+    pub ld_coefficient: f64,
+    pub solar_radius_pixels: usize,
 }
 
 impl Default for ParametersState {
@@ -59,6 +62,9 @@ impl Default for ParametersState {
             top_percentage: 10.0,
             decorrelated_colors: false,
             analysis_window_size: 128,
+            ld_correction: false,
+            ld_coefficient: 0.56,
+            solar_radius_pixels: 768,
         }
     }
 }

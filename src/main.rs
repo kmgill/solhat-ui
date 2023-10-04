@@ -192,7 +192,7 @@ macro_rules! bind_open_clear {
 }
 
 macro_rules! bind_spinner {
-    ($builder:expr, $obj_id:expr, $state_prop:ident, $type:ident) => {
+    ($builder:expr, $obj_id:expr, $state_prop:ident, $type:ident, $sensitive:expr) => {
         let spn_obj: SpinButton = bind_object!($builder, $obj_id);
         let spn_adj: Adjustment = spn_obj.adjustment();
         spn_adj.set_value(get_state_param!($state_prop) as f64);
@@ -201,6 +201,7 @@ macro_rules! bind_spinner {
             set_state_param!($state_prop, e.value() as $type);
             info!("State param is now {}", get_state_param!($state_prop));
         });
+        spn_obj.set_sensitive($sensitive);
     };
 }
 
@@ -416,29 +417,50 @@ fn build_ui(application: &Application) {
     ////////
     // Spinners
     ////////
-    bind_spinner!(builder, "spn_obs_latitude", obs_latitude, f64);
-    bind_spinner!(builder, "spn_obs_longitude", obs_longitude, f64);
+    bind_spinner!(builder, "spn_obs_latitude", obs_latitude, f64, true);
+    bind_spinner!(builder, "spn_obs_longitude", obs_longitude, f64, true);
 
     bind_spinner!(
         builder,
         "spn_obj_detection_threshold",
         obj_detection_threshold,
-        f64
+        f64,
+        true
     );
-    bind_spinner!(builder, "spn_max_frames", max_frames, usize);
-    bind_spinner!(builder, "spn_min_sigma", min_sigma, f64);
-    bind_spinner!(builder, "spn_max_sigma", max_sigma, f64);
-    bind_spinner!(builder, "spn_top_percentage", top_percentage, f64);
-    bind_spinner!(builder, "spn_window_size", analysis_window_size, usize);
+    bind_spinner!(builder, "spn_max_frames", max_frames, usize, true);
+    bind_spinner!(builder, "spn_min_sigma", min_sigma, f64, true);
+    bind_spinner!(builder, "spn_max_sigma", max_sigma, f64, true);
+    bind_spinner!(builder, "spn_top_percentage", top_percentage, f64, true);
+    bind_spinner!(builder, "spn_window_size", analysis_window_size, usize, true);
 
     ////////
     // Decorrelated Colors
     ////////
     let chk_decorr_colors: CheckButton = bind_object!(builder, "chk_decorrelated_color");
+    chk_decorr_colors.set_active(get_state_param!(decorrelated_colors));
     chk_decorr_colors.connect_toggled(|e: &CheckButton| {
         set_state_param!(decorrelated_colors, e.is_active());
         info!("Decorrelated Colors: {}", e.is_active())
     });
+
+    ////////
+    // Limb darkening correction
+    ////////
+    bind_spinner!(builder, "spn_ldcorrect_coefficient", ld_coefficient, f64, get_state_param!(ld_correction));
+    bind_spinner!(builder, "spn_solar_radius", solar_radius_pixels, usize, get_state_param!(ld_correction));
+
+    let chk_ldcorrection: CheckButton = bind_object!(builder, "chk_ldcorrection");
+    chk_ldcorrection.set_active(get_state_param!(ld_correction));
+    chk_ldcorrection.connect_toggled(glib::clone!( @weak b as builder => move|e: &CheckButton| {
+        set_state_param!(ld_correction, e.is_active());
+        info!("Limb Darkening Correction: {}", e.is_active());
+        let spn_obj: SpinButton = bind_object!(builder, "spn_ldcorrect_coefficient");//
+        spn_obj.set_sensitive(e.is_active());
+
+        let spn_obj: SpinButton = bind_object!(builder, "spn_solar_radius");//
+        spn_obj.set_sensitive(e.is_active());
+    }));
+    
 
     ////////
     // Threshold Test
