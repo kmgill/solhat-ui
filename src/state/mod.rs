@@ -38,6 +38,8 @@ pub struct ParametersState {
     pub ld_correction: bool,
     pub ld_coefficient: f64,
     pub solar_radius_pixels: usize,
+    pub vert_offset: i32,
+    pub horiz_offset: i32,
 }
 
 impl Default for ParametersState {
@@ -65,6 +67,8 @@ impl Default for ParametersState {
             ld_correction: false,
             ld_coefficient: 0.56,
             solar_radius_pixels: 768,
+            vert_offset: 0,
+            horiz_offset: 0,
         }
     }
 }
@@ -225,6 +229,8 @@ pub fn build_solhat_parameters() -> Result<ProcessParameters> {
         bias_inputs: p2s!(state.params.bias),
         hot_pixel_map: p2s!(state.params.hot_pixel_map),
         analysis_window_size: state.params.analysis_window_size,
+        vert_offset: state.params.vert_offset,
+        horiz_offset: state.params.horiz_offset,
     })
 }
 
